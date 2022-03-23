@@ -1,0 +1,570 @@
+﻿'*******************************************************************************
+'**   Created by Peter Horsbøll Møller, Precisely
+'** 	Program:
+'** 	Modul:
+'**
+'*******************************************************************************
+
+'-------------------------------------
+Include "Enums.def"
+Include "Icons.def"
+Include "MapBasic.def"
+Include "Menu.def"
+'**default constants...
+Include "Library\Defaults.def"
+
+Include "Library\MI_ICONS_X64.def"
+Include "Library\RibbonElements.def"
+
+
+Define xProgram 		"Dynamic Demograpic Analyzer"
+Define xProgramMenu		"DynamicDemograpicAnalyzer"
+Define xVersion 		"1.1.0"
+Define xYear			"2022"
+Define xAddToMenuBar	FALSE
+
+Define FILE_INI			GetFolderPath$(FOLDER_MI_PREFERENCE) & "DynamicDemograpicAnalyzer.ini"
+Define FILE_DBG			ApplicationDirectory$() & xProgram & ".dbg"
+'Define FILE_DLL			ApplicationDirectory$() & xProgram & ".dll"
+Define FILE_PAD			GetFolderPath$(FOLDER_MI_PREFERENCE) & xProgram & ".btp"
+
+'-------------------------------------
+Include "Library\CONFIGFILELib.def"
+Include "Library\DEBUGLib.def"
+Include "Library\ERRORLib.def"
+Include "Library\FILELib.def"
+Include "Library\ProgramInfo.def"
+Include "Library\RIBBONLib.def"
+Include "Library\TABLELib.def"
+
+'-----------------------------------------------------------------------------------------
+Declare Sub Main
+Declare Sub MENUEnableDisableControls
+Declare Sub EndProgram
+Declare Sub EndHandler
+
+Declare Sub MENUDestination2Origins
+Declare Sub MENUOrigin2Destinations
+
+Declare Sub MENUSelectTableDDOrig2Dest
+Declare Sub MENUSelectTableDDBoundary
+
+Dim	msFileBoundary, msFileOrigin2Dest As String,
+	msTabBoundary, msTabOrigin2Dest As String,
+	mnDDAnalyzerIdx As Integer
+
+'**********************************************************************************************''
+'**   Created by Peter Horsbøll Møller, Precisely
+'
+'**********************************************************************************************''
+Sub Main
+
+Dim	sTabName, sGroupName As String,
+	nCtrlIdx As Integer
+
+OnError GoTo ErrorOccured
+
+	'***Initializing ApplicationInfo
+	Call PRGISetApplicationName(xProgram)
+	Call PRGISetApplicationVersion(xVersion)
+	Call PRGISetApplicationCopyrightYear(xYear)
+	Call PRGISetApplicationDevelopedBy("Peter Horsbøll Møller")
+	Call PRGISetDescription(PRGIGetApplicationName() & " helps you analyze the Precisely Demographic dataset to understand origin and destinations.")
+	Call PRGISetApplicationImageUri(ApplicationDirectory$() & "DynamicDemographic_32.png")
+
+	'***Enabling Debug if file exists
+	Call DEBUGEnableByFile(FILE_DBG)
+
+	'****************************************************************************************
+	' C O N T R O L S   A D D E D   T O   M A P   T A B
+	'****************************************************************************************
+	'**Map Tab, Selection Group
+	sTabName		= TAB_MAP
+	sGroupName	= TAB_GROUP_MAP_SELECTION
+
+	nCtrlIdx = RBNGroupAddControl("cmdDDAnalyzerD2O", "Destination to Origin", "", ControlType_ToolButton, sTabName, sGroupName)
+	If nCtrlIdx > 0 Then
+		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Create a Destination to Origin Analysis.", "")
+		Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_LARGE, "", ApplicationDirectory$() & "Dest2Origin_64.png")
+		Call RBNControlSetDrawModeIdx(nCtrlIdx, DM_CUSTOM_POINT)
+		Call RBNControlSetMICursorIdx(nCtrlIdx, MI_CURSOR_ARROW, "")
+		Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUDestination2Origins")
+	End If
+
+	nCtrlIdx = RBNGroupAddControl("cmdDDAnalyzerO2D", "Origin to Destination", "", ControlType_ToolButton, sTabName, sGroupName)
+	If nCtrlIdx > 0 Then
+		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Create a Origin to Destination Analysis.", "")
+		Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_LARGE, "", ApplicationDirectory$() & "Origin2Dest_64.png")
+		Call RBNControlSetDrawModeIdx(nCtrlIdx, DM_CUSTOM_POINT)
+		Call RBNControlSetMICursorIdx(nCtrlIdx, MI_CURSOR_ARROW, "")
+		Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUOrigin2Destinations")
+	End If
+
+
+	'****************************************************************************************
+	' C O N T R O L S   A D D E D   T O   A P P L I C A T I O N   C O N T E X T   M E N U
+	'****************************************************************************************
+	'**Application Context Menu
+	nCtrlIdx	= RBNToolContextMenuAddMenuItem("cmdSetHexBoundaryFile", "Set Hexagon Boundary File...", "")
+	If nCtrlIdx > 0 Then
+		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Select file with Hexagon Boundaries.", "")
+		Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_SMALL, MI_IMG_MAP_OPENTABLE_16, MI_IMG_MAP_OPENTABLE_32)
+		Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUSelectTableDDBoundary")
+	End If
+
+	nCtrlIdx	= RBNToolContextMenuAddMenuItem("cmdSetHexOrig2Dest", "Set Origin to Destination File...", "")
+	If nCtrlIdx > 0 Then
+		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Select file with Origin to Destination.", "")
+		Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_SMALL, MI_IMG_MAP_OPENTABLE_16, MI_IMG_MAP_OPENTABLE_32)
+		Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUSelectTableDDOrig2Dest")
+	End If
+
+	'**Reading Configuration File
+	msFileBoundary = CONFIGReadKey(FILE_INI, "DD_TABFILES", "HEX_BOUNDARY")
+	Print "1. Boundary File: " & msFileBoundary
+	If msFileBoundary <> "" Then
+		msFileBoundary		= FILEGetAbsolutePath(ApplicationDirectory$(), msFileBoundary)
+	End If
+	msFileOrigin2Dest	= CONFIGReadKey(FILE_INI, "DD_TABFILES", "ORIG2DEST")
+	Print "1. Origin2Dest File: " & msFileOrigin2Dest
+	If msFileOrigin2Dest <> "" Then
+		msFileOrigin2Dest	= FILEGetAbsolutePath(ApplicationDirectory$(), msFileOrigin2Dest)
+	End If
+
+'	msTabBoundary		= PathToTableName$(msFileBoundary)
+'	msTabOrigin2Dest	= PathToTableName$(msFileOrigin2Dest)
+
+	Print "2. Boundary File: " & msFileBoundary
+	Print "2. Origin2Dest File: " & msFileOrigin2Dest
+
+	If msFileBoundary = "" Then
+		Call MENUSelectTableDDBoundary
+	End If
+	If msFileOrigin2Dest = "" Then
+		Call MENUSelectTableDDOrig2Dest
+	End If
+
+	Call MENUEnableDisableControls
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "Main")
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub MENUEnableDisableControls
+
+OnError GoTo ErrorOccured
+
+	If msFileBoundary = "" Or msFileOrigin2Dest = "" Then
+		Call RBNGroupEnableControls("", "", "cmdDDAnalyzerD2O", FALSE)
+		Call RBNGroupEnableControls("", "", "cmdDDAnalyzerO2D", FALSE)
+	Else
+		Call RBNGroupEnableControls("", "", "cmdDDAnalyzerD2O", TRUE)
+		Call RBNGroupEnableControls("", "", "cmdDDAnalyzerO2D", TRUE)
+	End If
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "MENUEnableDisableControls")
+	Call ERRShow()
+
+End Sub
+
+'****************************************
+'**   Created by Peter Horsbøll Møller, Precisely
+'**   Ending MapBasic application
+'****************************************
+Sub EndProgram
+
+OnError GoTo ErrorOccured
+
+	End Program
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "EndProgram")
+	Call ERRShow()
+
+End Sub
+
+'****************************************
+'**   Created by Peter Horsbøll Møller, Precisely
+'**   Ending MapBasic application
+'****************************************
+Sub EndHandler
+
+OnError GoTo ErrorOccured
+
+	Call RBNEndHandler
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "EndProgram")
+	Call ERRShow()
+
+End Sub
+
+'****************************************
+'**   Created by Peter Horsbøll Møller, Precisely
+'**   Ending MapBasic application
+'****************************************
+Sub MENUSelectTableDDOrig2Dest
+
+Dim	sFile As String
+
+OnError GoTo ErrorOccured
+
+	sFile = FileOpenDlg(PathToDirectory$(msFileOrigin2Dest), PathToFileName$(msFileOrigin2Dest), "TAB", "Select Origin to Destination Dynamic Demographic file...")
+	If sFile = "" Then
+		Exit Sub
+	End If
+
+	msFileOrigin2Dest	= sFile
+'	msTabOrigin2Dest	= PathToTableName$(msFileOrigin2Dest)
+
+	Call MENUEnableDisableControls
+
+	Call CONFIGWriteKey(FILE_INI, "DD_TABFILES", "ORIG2DEST", FILEGetRelativePath(ApplicationDirectory$(), msFileOrigin2Dest))
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "MENUSelectTableDDOrig2Dest")
+	Call ERRShow()
+
+End Sub
+
+'****************************************
+'**   Created by Peter Horsbøll Møller, Precisely
+'**   Ending MapBasic application
+'****************************************
+Sub MENUSelectTableDDBoundary
+
+Dim	sFile As String
+
+OnError GoTo ErrorOccured
+
+	sFile = FileOpenDlg(PathToDirectory$(msFileBoundary), PathToFileName$(msFileBoundary), "TAB", "Select Dynamic Demographic Boundary file...")
+	If sFile = "" Then
+		Exit Sub
+	End If
+
+	msFileBoundary	= sFile
+'	msTabBoundary	= PathToTableName$(msFileBoundary)
+
+	Call MENUEnableDisableControls
+
+	Call CONFIGWriteKey(FILE_INI, "DD_TABFILES", "HEX_BOUNDARY", FILEGetRelativePath(ApplicationDirectory$(), msFileBoundary))
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "MENUSelectTableHexBoundary")
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Pitney Bowes Business Insight
+'Parameters:
+'
+'**********************************************************************************************''
+Sub MENUDestination2Origins
+
+Dim	oPoint, oDestination As Object,
+	fX, fY As Float,
+	sAreaID As String,
+	nMID As Integer
+
+OnError GoTo ErrorOccured
+
+	If FrontWindow() = 0 Then
+		Call RBNNotificationShow(PRGIGetApplicationName(), "Please use this tool in a map window!", Notify_Error, 2500)
+		Exit Sub
+	End If
+
+	nMID = FrontWindow()
+	If Not WindowInfo(nMID, WIN_INFO_TYPE) = WIN_MAPPER Then
+		Call RBNNotificationShow(PRGIGetApplicationName(), "Please use this tool in a map window!", Notify_Error, 2500)
+		Exit Sub
+	End If
+
+	msTabBoundary = TABGetNameFromTabFile(msFileBoundary)
+	If msTabBoundary = "" Then
+		If FileExists(msFileBoundary) Then
+			Open Table msFileBoundary Interactive
+		End If
+		msTabBoundary = TABGetNameFromTabFile(msFileBoundary)
+		If msTabBoundary = "" Then
+			Exit Sub
+		End If
+	End If
+
+	msTabOrigin2Dest = TABGetNameFromTabFile(msFileOrigin2Dest)
+	If msTabOrigin2Dest = "" Then
+		If FileExists(msFileOrigin2Dest) Then
+			Open Table msFileOrigin2Dest Interactive
+		End If
+		msTabOrigin2Dest = TABGetNameFromTabFile(msFileOrigin2Dest)
+		If msTabOrigin2Dest = "" Then
+			Exit Sub
+		End If
+	End If
+
+	Set CoordSys Table msTabBoundary
+	fX	= CommandInfo(CMD_INFO_X)
+	fY	= CommandInfo(CMD_INFO_Y)
+
+	oPoint = CreatePoint(fX, fY)
+
+	Select * From msTabBoundary
+		Where oPoint Within OBJ
+		Into __currDD NoSelect Hide
+
+	If TableInfo(__currDD, TAB_INFO_NROWS) = 0 Then
+		Call RBNNotificationShow(PRGIGetApplicationName(), "No Dynamic Demographic Polygon found at that location!", Notify_Error, 2500)
+		Close Table __currDD
+		Exit Sub
+	End If
+
+	Call TABClose("Origin_DD")
+	Call TABClose("Destinations_DD")
+	Call TABClose("Origin_2_Destinations_DD")
+
+	Fetch First From __currDD
+	sAreaID		= __currDD.Area_ID
+	oDestination	= __currDD.OBJ
+
+	Print Time(24) & " " & FormatNumber$(TableInfo(__currDD, TAB_INFO_NROWS)) & " destination(s) found. Using " & sAreaID
+
+	Close Table __currDD
+
+'	Print "Using this area for analysis: " & sAreaID
+
+'	Select *
+'		From dd_hex_origin_destination_aft_
+'		Where area_id in (select area_id from selection)
+'		into mydestination noselect
+'	Select *
+'		From dd_hex_09_202112
+'		Into Selection
+'		Where area_id in (select origin_area_id from mydestination)
+
+	Select * From msTabBoundary
+		Where Area_ID = sAreaID
+		And OBJ
+		Into Destination_DD NoSelect
+	Print Time(24) & " " & FormatNumber$(TableInfo(Destination_DD, TAB_INFO_NROWS)) & " destination(s) found using " & sAreaID
+
+	If TableInfo(Destination_DD, TAB_INFO_NROWS) = 0 Then
+		Close Table Destination_DD
+		Call RBNNotificationShow(PRGIGetApplicationName(), "No Dynamic Demographic Polygons found for Area_ID '" & sAreaID & "'!", Notify_Error, 2500)
+	End If
+
+	Select *
+		From msTabBoundary
+		Where Area_ID In (Select Origin_Area_ID from msTabOrigin2Dest Where Dest_Area_ID = sAreaID Group By Origin_Area_ID)
+		And OBJ
+		Into Origins_DD NoSelect
+	Print Time(24) & " " & FormatNumber$(TableInfo(Origins_DD, TAB_INFO_NROWS)) & " origins(s) founds."
+	If TableInfo(Origins_DD, TAB_INFO_NROWS) = 0 Then
+
+		Close Table Origins_DD
+		Close Table Destination_DD
+		Call RBNNotificationShow(PRGIGetApplicationName(), "No Origin Dynamic Demographic Polygons found for Area_ID '" & sAreaID & "'!", Notify_Error, 2500)
+	End If
+
+	Select Area_ID, ConnectObjects(Centroid(oDestination), Centroid(OBJ), TRUE) Object
+		From Origins_DD
+		Into Destination_2_Origins_DD NoSelect
+	Print Time(24) & " " & FormatNumber$(TableInfo(Destination_2_Origins_DD, TAB_INFO_NROWS)) & " destination to origin(s) calculated."
+
+	Add Map
+		Window nMID
+		Layer Destination_2_Origins_DD, Destination_DD, Origins_DD
+
+	Set Map
+		Window nMID
+		Layer Destination_2_Origins_DD
+			Display Global
+			Global Line (3,3,8388608)
+		Layer Origins_DD
+			Display Global
+			Global Pen (2,1,16711680) Global Brush (2,16711680,16777215)
+			Alpha 127
+		Layer Destination_DD
+			Display Global
+			Global Global Pen (2,1,45056) Global Brush (2,45056,45056)
+			Alpha 127
+
+	Set Window nMID Enhanced On
+	Set Map
+		Window nMID
+		Zoom Entire Layer Destination_2_Origins_DD
+
+	Call RBNNotificationShow(PRGIGetApplicationName(), "Destination " & sAreaID & " has " & FormatNumber$(TableInfo(Origins_DD, TAB_INFO_NROWS)) & " origins", Notify_Info, 10000)
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "MENUDestination2Origins")
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Pitney Bowes Business Insight
+'Parameters:
+'
+'**********************************************************************************************''
+Sub MENUOrigin2Destinations
+
+Dim	oPoint, oDestination As Object,
+	fX, fY As Float,
+	sAreaID As String,
+	nMID As Integer
+
+OnError GoTo ErrorOccured
+
+	If FrontWindow() = 0 Then
+		Call RBNNotificationShow(PRGIGetApplicationName(), "Please use this tool in a map window!", Notify_Error, 2500)
+		Exit Sub
+	End If
+
+	nMID = FrontWindow()
+	If Not WindowInfo(nMID, WIN_INFO_TYPE) = WIN_MAPPER Then
+		Call RBNNotificationShow(PRGIGetApplicationName(), "Please use this tool in a map window!", Notify_Error, 2500)
+		Exit Sub
+	End If
+
+	msTabBoundary = TABGetNameFromTabFile(msFileBoundary)
+	If msTabBoundary = "" Then
+		If FileExists(msFileBoundary) Then
+			Open Table msFileBoundary Interactive
+		End If
+		msTabBoundary = TABGetNameFromTabFile(msFileBoundary)
+		If msTabBoundary = "" Then
+			Exit Sub
+		End If
+	End If
+
+	msTabOrigin2Dest = TABGetNameFromTabFile(msFileOrigin2Dest)
+	If msTabOrigin2Dest = "" Then
+		If FileExists(msFileOrigin2Dest) Then
+			Open Table msFileOrigin2Dest Interactive
+		End If
+		msTabOrigin2Dest = TABGetNameFromTabFile(msFileOrigin2Dest)
+		If msTabOrigin2Dest = "" Then
+			Exit Sub
+		End If
+	End If
+
+	Set CoordSys Table msTabBoundary
+	fX	= CommandInfo(CMD_INFO_X)
+	fY	= CommandInfo(CMD_INFO_Y)
+
+	oPoint = CreatePoint(fX, fY)
+
+	Select * From msTabBoundary
+		Where oPoint Within OBJ
+		Into __currDD NoSelect Hide
+
+	If TableInfo(__currDD, TAB_INFO_NROWS) = 0 Then
+		Call RBNNotificationShow(PRGIGetApplicationName(), "No Dynamic Demographic Polygon found at that location!", Notify_Error, 2500)
+		Close Table __currDD
+		Exit Sub
+	End If
+
+	Call TABClose("Destination_DD")
+	Call TABClose("Origins_DD")
+	Call TABClose("Destination_2_Origins_DD")
+
+	Fetch First From __currDD
+	sAreaID		= __currDD.Area_ID
+	oDestination	= __currDD.OBJ
+
+	Print Time(24) & " " & FormatNumber$(TableInfo(__currDD, TAB_INFO_NROWS)) & " origin(s) found. Using " & sAreaID
+
+	Close Table __currDD
+
+'	Print "Using this area for analysis: " & sAreaID
+
+'	Select *
+'		From dd_hex_origin_destination_aft_
+'		Where area_id in (select area_id from selection)
+'		into mydestination noselect
+'	Select *
+'		From dd_hex_09_202112
+'		Into Selection
+'		Where area_id in (select origin_area_id from mydestination)
+
+	Select * From msTabBoundary
+		Where Area_ID = sAreaID
+		And OBJ
+		Into Origin_DD NoSelect
+	Print Time(24) & " " & FormatNumber$(TableInfo(Origin_DD, TAB_INFO_NROWS)) & " origin(s) found using " & sAreaID
+
+	If TableInfo(Origin_DD, TAB_INFO_NROWS) = 0 Then
+		Close Table Origin_DD
+		Call RBNNotificationShow(PRGIGetApplicationName(), "No Dynamic Demographic Polygons found for Area_ID '" & sAreaID & "'!", Notify_Error, 2500)
+	End If
+
+	Select *
+		From msTabBoundary
+		Where Area_ID In (Select Dest_Area_ID from msTabOrigin2Dest Where Origin_Area_ID = sAreaID Group By Dest_Area_ID)
+		And OBJ
+		Into Destinations_DD NoSelect
+	Print Time(24) & " " & FormatNumber$(TableInfo(Destinations_DD, TAB_INFO_NROWS)) & " destination(s) founds."
+
+	If TableInfo(Destinations_DD, TAB_INFO_NROWS) = 0 Then
+		Close Table Destinations_DD
+		Close Table Origin_DD
+		Call RBNNotificationShow(PRGIGetApplicationName(), "No Destination Dynamic Demographic Polygons found for Area_ID '" & sAreaID & "'!", Notify_Error, 2500)
+	End If
+
+	Select Destinations_DD.*, ConnectObjects(Centroid(oDestination), Centroid(Destinations_DD.OBJ), TRUE) Object
+		From Destinations_DD
+		Into Origin_2_Destinations_DD NoSelect
+	Print Time(24) & " " & FormatNumber$(TableInfo(Origin_2_Destinations_DD, TAB_INFO_NROWS)) & " origin to destination(s) calculated."
+
+	Add Map
+		Window nMID
+		Layer Origin_2_Destinations_DD, Origin_DD, Destinations_DD
+
+	Set Map
+		Window nMID
+		Layer Origin_2_Destinations_DD
+			Display Global
+			Global Line (3,3,8388608)
+		Layer Origin_DD
+			Display Global
+			Global Pen (2,1,16711680) Global Brush (2,16711680,16777215)
+			Alpha 127
+		Layer Destinations_DD
+			Display Global
+			Global Global Pen (2,1,45056) Global Brush (2,45056,45056)
+			Alpha 127
+
+	Set Window nMID Enhanced On
+	Set Map
+		Window nMID
+		Zoom Entire Layer Origin_2_Destinations_DD
+
+	Call RBNNotificationShow(PRGIGetApplicationName(), "Origin " & sAreaID & " has " & FormatNumber$(TableInfo(Destinations_DD, TAB_INFO_NROWS)) & " destinations", Notify_Info, 10000)
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "MENUOrigin2Destinations")
+	Call ERRShow()
+
+End Sub
