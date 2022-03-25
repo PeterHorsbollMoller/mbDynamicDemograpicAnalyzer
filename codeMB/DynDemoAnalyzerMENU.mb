@@ -19,7 +19,7 @@ Include "Library\RibbonElements.def"
 
 Define xProgram 		"Dynamic Demograpic Analyzer"
 Define xProgramMenu		"DynamicDemograpicAnalyzer"
-Define xVersion 		"1.1.0"
+Define xVersion 		"1.1.1"
 Define xYear			"2022"
 Define xAddToMenuBar	FALSE
 
@@ -105,14 +105,14 @@ OnError GoTo ErrorOccured
 	' C O N T R O L S   A D D E D   T O   A P P L I C A T I O N   C O N T E X T   M E N U
 	'****************************************************************************************
 	'**Application Context Menu
-	nCtrlIdx	= RBNToolContextMenuAddMenuItem("cmdSetHexBoundaryFile", "Set Hexagon Boundary File...", "")
+	nCtrlIdx	= RBNToolContextMenuAddMenuItem("cmdSetBoundaryFile", "Set Boundary File...", "")
 	If nCtrlIdx > 0 Then
-		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Select file with Hexagon Boundaries.", "")
+		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Select file with Boundaries.", "")
 		Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_SMALL, MI_IMG_MAP_OPENTABLE_16, MI_IMG_MAP_OPENTABLE_32)
 		Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUSelectTableDDBoundary")
 	End If
 
-	nCtrlIdx	= RBNToolContextMenuAddMenuItem("cmdSetHexOrig2Dest", "Set Origin to Destination File...", "")
+	nCtrlIdx	= RBNToolContextMenuAddMenuItem("cmdSetOrig2Dest", "Set Origin to Destination File...", "")
 	If nCtrlIdx > 0 Then
 		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Select file with Origin to Destination.", "")
 		Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_SMALL, MI_IMG_MAP_OPENTABLE_16, MI_IMG_MAP_OPENTABLE_32)
@@ -268,7 +268,7 @@ OnError GoTo ErrorOccured
 	Exit Sub
 '-------------------------
 ErrorOccured:
-	Call ERRCreate(Err(), Error$(), "MENUSelectTableHexBoundary")
+	Call ERRCreate(Err(), Error$(), "MENUSelectTableBoundary")
 	Call ERRShow()
 
 End Sub
