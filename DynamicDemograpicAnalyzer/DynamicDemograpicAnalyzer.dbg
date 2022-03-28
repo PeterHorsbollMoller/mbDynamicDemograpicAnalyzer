@@ -1,0 +1,25 @@
+14:48:09 GLYRGetGroupLayerID: Found in top level
+14:48:09 Using EXISTING group layer 'Work'
+14:48:10 2 layers have been configured.
+14:48:10 Zooming to extent of layer 'Origins_Work_DD'
+14:48:31 1 Destination(s) found. Using 89195d2940fffff
+14:48:31 1 Destination(s) found using 89195d2940fffff
+14:48:31 1 layer has been configured.
+14:48:35 15 Origin(s) found for 'Home'.
+14:48:35 15 Destination to Origin(s) calculated for 'Home'.
+14:48:35 1 1 Destination_DD
+14:48:35 2 2 Home
+14:48:35 GLYRGetGroupLayerID: Comparing 'Home' with 'Home'
+14:48:35 GLYRGetGroupLayerID: Found in top level
+14:48:35 Using EXISTING group layer 'Home'
+14:48:36 2 layers have been configured.
+14:48:39 14 Origin(s) found for 'Work'.
+14:48:40 14 Destination to Origin(s) calculated for 'Work'.
+14:48:40 1 1 Destination_DD
+14:48:40 2 2 Home
+14:48:40 GLYRGetGroupLayerID: Comparing 'Home' with 'Work'
+14:48:40 3 3 Destination_2_Origins_Home_DD
+14:48:40 4 4 Origins_Home_DD
+14:48:40 Creating NEW group layer 'Work'
+14:48:40 2 layers have been configured.
+14:48:40 Zooming to extent of layer 'Origins_Home_DD'

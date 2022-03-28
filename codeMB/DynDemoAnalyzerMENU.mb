@@ -19,20 +19,23 @@ Include "Library\RibbonElements.def"
 
 Define xProgram 		"Dynamic Demograpic Analyzer"
 Define xProgramMenu		"DynamicDemograpicAnalyzer"
-Define xVersion 		"1.1.1"
+Define xVersion 		"1.2.0"
 Define xYear			"2022"
 Define xAddToMenuBar	FALSE
 
-Define FILE_INI			GetFolderPath$(FOLDER_MI_PREFERENCE) & "DynamicDemograpicAnalyzer.ini"
-Define FILE_DBG			ApplicationDirectory$() & xProgram & ".dbg"
-'Define FILE_DLL			ApplicationDirectory$() & xProgram & ".dll"
-Define FILE_PAD			GetFolderPath$(FOLDER_MI_PREFERENCE) & xProgram & ".btp"
+Define FILE_INI		GetFolderPath$(FOLDER_MI_PREFERENCE) & "DynamicDemograpicAnalyzer.ini"
+Define FILE_DBG		ApplicationDirectory$() & "DynamicDemograpicAnalyzer.dbg"
 
 '-------------------------------------
+Include "Library\Types\T_LAYER_SETTINGS.def"
+Include "Library\Types\T_LABEL_SETTINGS.def"
+Include "Library\Types\T_GROUP_LAYER_INFO.def"
+Include "Library\Types\T_LAYER_INFO.def"
 Include "Library\CONFIGFILELib.def"
 Include "Library\DEBUGLib.def"
 Include "Library\ERRORLib.def"
 Include "Library\FILELib.def"
+Include "Library\GroupLayerLib.def"
 Include "Library\ProgramInfo.def"
 Include "Library\RIBBONLib.def"
 Include "Library\TABLELib.def"
@@ -49,9 +52,14 @@ Declare Sub MENUOrigin2Destinations
 Declare Sub MENUSelectTableDDOrig2Dest
 Declare Sub MENUSelectTableDDBoundary
 
+Declare Function MENUGetLayerPen(ByVal sType As String) As Pen
+Declare Function MENUGetLayerBrush(ByVal sType As String) As Pen
+
+
 Dim	msFileBoundary, msFileOrigin2Dest As String,
 	msTabBoundary, msTabOrigin2Dest As String,
-	mnDDAnalyzerIdx As Integer
+	mnDDAnalyzerIdx As Integer,
+	mbSplitByHomeWork As Logical
 
 '**********************************************************************************************''
 '**   Created by Peter Horsbøll Møller, Precisely
@@ -120,13 +128,16 @@ OnError GoTo ErrorOccured
 	End If
 
 	'**Reading Configuration File
+	mbSplitByHomeWork	= IIf(CONFIGReadKey(FILE_INI, "CONFIGURATION", "SPLIT_HOMEWORK")="1", TRUE, FALSE)
+	Call DebugPrint("Split result tables by HOME/WORK: " & IIf(mbSplitByHomeWork, "Yes", "No"))
+
 	msFileBoundary = CONFIGReadKey(FILE_INI, "DD_TABFILES", "HEX_BOUNDARY")
-	Print "1. Boundary File: " & msFileBoundary
+'	Call DebugPrint("1. Boundary File: " & msFileBoundary)
 	If msFileBoundary <> "" Then
 		msFileBoundary		= FILEGetAbsolutePath(ApplicationDirectory$(), msFileBoundary)
 	End If
 	msFileOrigin2Dest	= CONFIGReadKey(FILE_INI, "DD_TABFILES", "ORIG2DEST")
-	Print "1. Origin2Dest File: " & msFileOrigin2Dest
+'	Call DebugPrint("1. Origin2Dest File: " & msFileOrigin2Dest)
 	If msFileOrigin2Dest <> "" Then
 		msFileOrigin2Dest	= FILEGetAbsolutePath(ApplicationDirectory$(), msFileOrigin2Dest)
 	End If
@@ -134,8 +145,8 @@ OnError GoTo ErrorOccured
 '	msTabBoundary		= PathToTableName$(msFileBoundary)
 '	msTabOrigin2Dest	= PathToTableName$(msFileOrigin2Dest)
 
-	Print "2. Boundary File: " & msFileBoundary
-	Print "2. Origin2Dest File: " & msFileOrigin2Dest
+	Call DebugPrint("2. Boundary File: " & msFileBoundary)
+	Call DebugPrint("2. Origin2Dest File: " & msFileOrigin2Dest)
 
 	If msFileBoundary = "" Then
 		Call MENUSelectTableDDBoundary
@@ -203,6 +214,9 @@ End Sub
 Sub EndHandler
 
 OnError GoTo ErrorOccured
+
+	'**Writing configurations to config file
+	Call CONFIGWriteKey(FILE_INI, "CONFIGURATION", "SPLIT_HOMEWORK", IIf(mbSplitByHomeWork, "1", "0"))
 
 	Call RBNEndHandler
 	Exit Sub
@@ -280,12 +294,15 @@ End Sub
 '**********************************************************************************************''
 Sub MENUDestination2Origins
 
-Dim	oPoint, oDestination As Object,
+Dim	oPoint, oFrom As Object,
 	fX, fY As Float,
-	sAreaID As String,
-	nMID As Integer
+	sFrom, sTo, sAreaID, sQueryName, sZoomLayer, sOriginAreaType As String,
+	i, nMID, nGroupLayerID, nCounts(2) As Integer
 
 OnError GoTo ErrorOccured
+
+	sFrom	= "Destination"
+	sTo		= "Origin"
 
 	If FrontWindow() = 0 Then
 		Call RBNNotificationShow(PRGIGetApplicationName(), "Please use this tool in a map window!", Notify_Error, 2500)
@@ -326,7 +343,8 @@ OnError GoTo ErrorOccured
 
 	oPoint = CreatePoint(fX, fY)
 
-	Select * From msTabBoundary
+	Select *
+		From msTabBoundary
 		Where oPoint Within OBJ
 		Into __currDD NoSelect Hide
 
@@ -336,82 +354,158 @@ OnError GoTo ErrorOccured
 		Exit Sub
 	End If
 
-	Call TABClose("Origin_DD")
-	Call TABClose("Destinations_DD")
-	Call TABClose("Origin_2_Destinations_DD")
+	Call TABClose(sTo & "_DD")
+	Call TABClose(sFrom & "s_DD")
+	Call TABClose(sFrom & "s_Home_DD")
+	Call TABClose(sFrom & "s_Work_DD")
+	Call TABClose(sTo & "_2_" & sFrom & "s_DD")
+	Call TABClose(sTo & "_2_" & sFrom & "s_Home_DD")
+	Call TABClose(sTo & "_2_" & sFrom & "s_WORK_DD")
 
 	Fetch First From __currDD
-	sAreaID		= __currDD.Area_ID
-	oDestination	= __currDD.OBJ
-
-	Print Time(24) & " " & FormatNumber$(TableInfo(__currDD, TAB_INFO_NROWS)) & " destination(s) found. Using " & sAreaID
+	sAreaID	= __currDD.Area_ID
+	oFrom	= __currDD.OBJ
+	Call DebugPrint(FormatNumber$(TableInfo(__currDD, TAB_INFO_NROWS)) & " " & sFrom & "(s) found. Using " & sAreaID)
 
 	Close Table __currDD
 
-'	Print "Using this area for analysis: " & sAreaID
-
-'	Select *
-'		From dd_hex_origin_destination_aft_
-'		Where area_id in (select area_id from selection)
-'		into mydestination noselect
-'	Select *
-'		From dd_hex_09_202112
-'		Into Selection
-'		Where area_id in (select origin_area_id from mydestination)
-
-	Select * From msTabBoundary
-		Where Area_ID = sAreaID
-		And OBJ
-		Into Destination_DD NoSelect
-	Print Time(24) & " " & FormatNumber$(TableInfo(Destination_DD, TAB_INFO_NROWS)) & " destination(s) found using " & sAreaID
-
-	If TableInfo(Destination_DD, TAB_INFO_NROWS) = 0 Then
-		Close Table Destination_DD
-		Call RBNNotificationShow(PRGIGetApplicationName(), "No Dynamic Demographic Polygons found for Area_ID '" & sAreaID & "'!", Notify_Error, 2500)
-	End If
-
 	Select *
 		From msTabBoundary
-		Where Area_ID In (Select Origin_Area_ID from msTabOrigin2Dest Where Dest_Area_ID = sAreaID Group By Origin_Area_ID)
+		Where Area_ID = sAreaID
 		And OBJ
-		Into Origins_DD NoSelect
-	Print Time(24) & " " & FormatNumber$(TableInfo(Origins_DD, TAB_INFO_NROWS)) & " origins(s) founds."
-	If TableInfo(Origins_DD, TAB_INFO_NROWS) = 0 Then
+		Into sFrom & "_DD" NoSelect
+	Call DebugPrint(FormatNumber$(TableInfo(sFrom & "_DD", TAB_INFO_NROWS)) & " " & sFrom & "(s) found using " & sAreaID)
 
-		Close Table Origins_DD
-		Close Table Destination_DD
-		Call RBNNotificationShow(PRGIGetApplicationName(), "No Origin Dynamic Demographic Polygons found for Area_ID '" & sAreaID & "'!", Notify_Error, 2500)
+	If TableInfo(sFrom & "_DD", TAB_INFO_NROWS) = 0 Then
+		Close Table sFrom & "_DD"
+		Call RBNNotificationShow(PRGIGetApplicationName(), "No Dynamic Demographic Polygons found for Area_ID '" & sAreaID & "'!", Notify_Error, 2500)
+		Exit Sub
 	End If
-
-	Select Area_ID, ConnectObjects(Centroid(oDestination), Centroid(OBJ), TRUE) Object
-		From Origins_DD
-		Into Destination_2_Origins_DD NoSelect
-	Print Time(24) & " " & FormatNumber$(TableInfo(Destination_2_Origins_DD, TAB_INFO_NROWS)) & " destination to origin(s) calculated."
 
 	Add Map
 		Window nMID
-		Layer Destination_2_Origins_DD, Destination_DD, Origins_DD
-
+		Layer sFrom & "_DD"
 	Set Map
 		Window nMID
-		Layer Destination_2_Origins_DD
+		Layer sFrom & "_DD"
 			Display Global
-			Global Line (3,3,8388608)
-		Layer Origins_DD
-			Display Global
-			Global Pen (2,1,16711680) Global Brush (2,16711680,16777215)
+			Global Global Pen MENUGetLayerPen(sFrom) Global Brush MENUGetLayerBrush(sFrom)
 			Alpha 127
-		Layer Destination_DD
-			Display Global
-			Global Global Pen (2,1,45056) Global Brush (2,45056,45056)
-			Alpha 127
+	Call DebugPrint("1 layer has been configured.")
 
+	If mbSplitByHomeWork Then
+		For i = 1 To 2
+			sOriginAreaType	= IIf(i = 1, "Home", "Work")
+			sQueryName		= sTo & "s_" & sOriginAreaType & "_DD"
+
+			'New Query using Join
+			Select *
+				From msTabBoundary As "b", msTabOrigin2Dest As "od"
+				Where b.Area_ID = od.Origin_Area_ID
+				And od.Origin_Area_Type = sOriginAreaType
+				And od.Dest_Area_ID = sAreaID
+				And OBJ
+				Into sQueryName NoSelect
+			nCounts(i)	= TableInfo(sQueryName, TAB_INFO_NROWS)
+			Call DebugPrint(FormatNumber$(nCounts(i)) & " " & sTo & "(s) found for '" & sOriginAreaType & "'.")
+
+			If nCounts(i) = 0 Then
+				Call RBNNotificationShow(PRGIGetApplicationName(), "No " & sTo & " Dynamic Demographic Polygons '" & sOriginAreaType & "' found for Area_ID '" & sAreaID & "'!", Notify_Error, 2500)
+				Call TABClose(sQueryName)
+				Exit Sub
+			Else
+				Select q.*, ConnectObjects(Centroid(oFrom), Centroid(q.OBJ), TRUE) Object
+					From sQueryName As "q"
+					Into sFrom & "_2_" & sQueryName NoSelect
+				Call DebugPrint(FormatNumber$(TableInfo(sFrom & "_2_" & sQueryName, TAB_INFO_NROWS)) & " " & sFrom & " to " & sTo & "(s) calculated for '" & sOriginAreaType & "'.")
+
+				nGroupLayerID = GLYRGetGroupLayerID(nMID, 0, sOriginAreaType, TRUE)
+				If nGroupLayerID < 0 Then
+					Call DebugPrint("Creating NEW group layer '" & sOriginAreaType & "'")
+					Add Map
+						Window nMID
+						GroupLayer (sOriginAreaType, sFrom & "_2_" & sQueryName, sQueryName) Position 2
+				Else
+					Call DebugPrint("Using EXISTING group layer '" & sOriginAreaType & "'")
+					Add Map
+						Window nMID
+						Layer sFrom & "_2_" & sQueryName, sQueryName
+						DestGrouplayer sOriginAreaType
+				End If
+
+				Set Map
+					Window nMID
+					Layer sFrom & "_2_" & sQueryName
+						Display Global
+						Global Line (3,3,8388608)
+					Layer sQueryName
+						Display Global
+						Global Pen MENUGetLayerPen(sTo & "s") Global Brush MENUGetLayerBrush(sTo & "s")
+						Alpha 127
+				Call DebugPrint("2 layers have been configured.")
+			End If
+		Next
+
+		sZoomLayer	= sTo & "s_" & IIf(nCounts(1) > nCounts(2), "Home", "Work") & "_DD"
+	Else
+		sQueryName		= sTo & "s_DD"
+
+		'New Query using Join
+		Select *
+			From msTabBoundary As "b", msTabOrigin2Dest As "od"
+			Where b.Area_ID = od.Origin_Area_ID
+			And od.Dest_Area_ID = sAreaID
+			And OBJ
+			Into sQueryName NoSelect
+		nCounts(1)	= TableInfo(sQueryName, TAB_INFO_NROWS)
+		Call DebugPrint(FormatNumber$(nCounts(1)) & " " & sTo & "(s) found.")
+
+		If nCounts(1) = 0 Then
+			Call RBNNotificationShow(PRGIGetApplicationName(), "No " & sTo & " Dynamic Demographic Polygons found for Area_ID '" & sAreaID & "'!", Notify_Error, 2500)
+			Call TABClose(sQueryName)
+			Exit Sub
+		Else
+			Select q.*, ConnectObjects(Centroid(oFrom), Centroid(q.OBJ), TRUE) Object
+				From sQueryName As "q"
+				Into sFrom & "_2_" & sQueryName NoSelect
+			Call DebugPrint(FormatNumber$(TableInfo(sFrom & "_2_" & sQueryName, TAB_INFO_NROWS)) & " " & sFrom & " to " & sTo & "(s) calculated.")
+
+			sZoomLayer	= sFrom & "_2_" & sQueryName
+
+			Add Map
+				Window nMID
+				Layer sFrom & "_2_" & sQueryName
+					, sQueryName
+
+			Set Map
+				Window nMID
+				Layer sFrom & "_2_" & sQueryName
+					Display Global
+					Global Line (3,3,8388608)
+				Layer sQueryName
+					Display Global
+					Global Global Pen MENUGetLayerPen(sTo & "s") Global Brush MENUGetLayerBrush(sTo & "s")
+					Alpha 127
+			Call DebugPrint("2 layers have been configured.")
+		End If
+	End If
+
+	Call DebugPrint("Zooming to extent of layer '" & sZoomLayer & "'")
 	Set Window nMID Enhanced On
 	Set Map
 		Window nMID
-		Zoom Entire Layer Destination_2_Origins_DD
+		Zoom Entire Layer sZoomLayer
 
-	Call RBNNotificationShow(PRGIGetApplicationName(), "Destination " & sAreaID & " has " & FormatNumber$(TableInfo(Origins_DD, TAB_INFO_NROWS)) & " origins", Notify_Info, 10000)
+	If mbSplitByHomeWork Then
+		Call RBNNotificationShow(PRGIGetApplicationName(), sFrom & " " & sAreaID & " has "
+					& FormatNumber$(nCounts(1)) & " Home " & sTo & "s and "
+					& FormatNumber$(nCounts(2)) & " Work " & sTo & "s"
+				, Notify_Info, 10000)
+	Else
+		Call RBNNotificationShow(PRGIGetApplicationName(), sFrom & " " & sAreaID & " has "
+					& FormatNumber$(nCounts(1)) & " " & sTo & "s"
+				, Notify_Info, 10000)
+	End If
 
 	Exit Sub
 '-------------------------
@@ -428,12 +522,15 @@ End Sub
 '**********************************************************************************************''
 Sub MENUOrigin2Destinations
 
-Dim	oPoint, oDestination As Object,
+Dim	oPoint, oFrom As Object,
 	fX, fY As Float,
-	sAreaID As String,
-	nMID As Integer
+	sFrom, sTo, sAreaID, sQueryName, sZoomLayer, sOriginAreaType As String,
+	i, nMID, nGroupLayerID, nCounts(2) As Integer
 
 OnError GoTo ErrorOccured
+
+	sFrom	= "Origin"
+	sTo		= "Destination"
 
 	If FrontWindow() = 0 Then
 		Call RBNNotificationShow(PRGIGetApplicationName(), "Please use this tool in a map window!", Notify_Error, 2500)
@@ -474,7 +571,8 @@ OnError GoTo ErrorOccured
 
 	oPoint = CreatePoint(fX, fY)
 
-	Select * From msTabBoundary
+	Select *
+		From msTabBoundary
 		Where oPoint Within OBJ
 		Into __currDD NoSelect Hide
 
@@ -484,82 +582,158 @@ OnError GoTo ErrorOccured
 		Exit Sub
 	End If
 
-	Call TABClose("Destination_DD")
-	Call TABClose("Origins_DD")
-	Call TABClose("Destination_2_Origins_DD")
+	Call TABClose(sTo & "_DD")
+	Call TABClose(sFrom & "s_DD")
+	Call TABClose(sFrom & "s_Home_DD")
+	Call TABClose(sFrom & "s_Work_DD")
+	Call TABClose(sTo & "_2_" & sFrom & "s_DD")
+	Call TABClose(sTo & "_2_" & sFrom & "s_Home_DD")
+	Call TABClose(sTo & "_2_" & sFrom & "s_WORK_DD")
 
 	Fetch First From __currDD
-	sAreaID		= __currDD.Area_ID
-	oDestination	= __currDD.OBJ
-
-	Print Time(24) & " " & FormatNumber$(TableInfo(__currDD, TAB_INFO_NROWS)) & " origin(s) found. Using " & sAreaID
+	sAreaID	= __currDD.Area_ID
+	oFrom	= __currDD.OBJ
+	Call DebugPrint(FormatNumber$(TableInfo(__currDD, TAB_INFO_NROWS)) & " " & sFrom & "(s) found. Using " & sAreaID)
 
 	Close Table __currDD
 
-'	Print "Using this area for analysis: " & sAreaID
-
-'	Select *
-'		From dd_hex_origin_destination_aft_
-'		Where area_id in (select area_id from selection)
-'		into mydestination noselect
-'	Select *
-'		From dd_hex_09_202112
-'		Into Selection
-'		Where area_id in (select origin_area_id from mydestination)
-
-	Select * From msTabBoundary
-		Where Area_ID = sAreaID
-		And OBJ
-		Into Origin_DD NoSelect
-	Print Time(24) & " " & FormatNumber$(TableInfo(Origin_DD, TAB_INFO_NROWS)) & " origin(s) found using " & sAreaID
-
-	If TableInfo(Origin_DD, TAB_INFO_NROWS) = 0 Then
-		Close Table Origin_DD
-		Call RBNNotificationShow(PRGIGetApplicationName(), "No Dynamic Demographic Polygons found for Area_ID '" & sAreaID & "'!", Notify_Error, 2500)
-	End If
-
 	Select *
 		From msTabBoundary
-		Where Area_ID In (Select Dest_Area_ID from msTabOrigin2Dest Where Origin_Area_ID = sAreaID Group By Dest_Area_ID)
+		Where Area_ID = sAreaID
 		And OBJ
-		Into Destinations_DD NoSelect
-	Print Time(24) & " " & FormatNumber$(TableInfo(Destinations_DD, TAB_INFO_NROWS)) & " destination(s) founds."
+		Into sFrom & "_DD" NoSelect
+	Call DebugPrint(FormatNumber$(TableInfo(sFrom & "_DD", TAB_INFO_NROWS)) & " " & sFrom & "(s) found using " & sAreaID)
 
-	If TableInfo(Destinations_DD, TAB_INFO_NROWS) = 0 Then
-		Close Table Destinations_DD
-		Close Table Origin_DD
-		Call RBNNotificationShow(PRGIGetApplicationName(), "No Destination Dynamic Demographic Polygons found for Area_ID '" & sAreaID & "'!", Notify_Error, 2500)
+	If TableInfo(sFrom & "_DD", TAB_INFO_NROWS) = 0 Then
+		Close Table sFrom & "_DD"
+		Call RBNNotificationShow(PRGIGetApplicationName(), "No Dynamic Demographic Polygons found for Area_ID '" & sAreaID & "'!", Notify_Error, 2500)
+		Exit Sub
 	End If
-
-	Select Destinations_DD.*, ConnectObjects(Centroid(oDestination), Centroid(Destinations_DD.OBJ), TRUE) Object
-		From Destinations_DD
-		Into Origin_2_Destinations_DD NoSelect
-	Print Time(24) & " " & FormatNumber$(TableInfo(Origin_2_Destinations_DD, TAB_INFO_NROWS)) & " origin to destination(s) calculated."
 
 	Add Map
 		Window nMID
-		Layer Origin_2_Destinations_DD, Origin_DD, Destinations_DD
-
+		Layer sFrom & "_DD"
 	Set Map
 		Window nMID
-		Layer Origin_2_Destinations_DD
+		Layer sFrom & "_DD"
 			Display Global
-			Global Line (3,3,8388608)
-		Layer Origin_DD
-			Display Global
-			Global Pen (2,1,16711680) Global Brush (2,16711680,16777215)
+			Global Global Pen MENUGetLayerPen(sFrom) Global Brush MENUGetLayerBrush(sFrom)
 			Alpha 127
-		Layer Destinations_DD
-			Display Global
-			Global Global Pen (2,1,45056) Global Brush (2,45056,45056)
-			Alpha 127
+	Call DebugPrint("1 layer has been configured.")
 
+	If mbSplitByHomeWork Then
+		For i = 1 To 2
+			sOriginAreaType	= IIf(i = 1, "Home", "Work")
+			sQueryName		= sTo & "s_" & sOriginAreaType & "_DD"
+
+			'New Query using Join
+			Select *
+				From msTabBoundary As "b", msTabOrigin2Dest As "od"
+				Where b.Area_ID = od.Dest_Area_ID
+				And od.Origin_Area_Type = sOriginAreaType
+				And od.Origin_Area_ID = sAreaID
+				And OBJ
+				Into sQueryName NoSelect
+			nCounts(i)	= TableInfo(sQueryName, TAB_INFO_NROWS)
+			Call DebugPrint(FormatNumber$(nCounts(i)) & " " & sTo & "(s) found for '" & sOriginAreaType & "'.")
+
+			If nCounts(i) = 0 Then
+				Call RBNNotificationShow(PRGIGetApplicationName(), "No " & sTo & " Dynamic Demographic Polygons '" & sOriginAreaType & "' found for Area_ID '" & sAreaID & "'!", Notify_Error, 2500)
+				Call TABClose(sQueryName)
+				Exit Sub
+			Else
+				Select q.*, ConnectObjects(Centroid(oFrom), Centroid(q.OBJ), TRUE) Object
+					From sQueryName As "q"
+					Into sFrom & "_2_" & sQueryName NoSelect
+				Call DebugPrint(FormatNumber$(TableInfo(sFrom & "_2_" & sQueryName, TAB_INFO_NROWS)) & " " & sFrom & " to " & sTo & "(s) calculated for '" & sOriginAreaType & "'.")
+
+				nGroupLayerID = GLYRGetGroupLayerID(nMID, 0, sOriginAreaType, TRUE)
+				If nGroupLayerID < 0 Then
+					Call DebugPrint("Creating NEW group layer '" & sOriginAreaType & "'")
+					Add Map
+						Window nMID
+						GroupLayer (sOriginAreaType, sFrom & "_2_" & sQueryName, sQueryName) Position 2
+				Else
+					Call DebugPrint("Using EXISTING group layer '" & sOriginAreaType & "'")
+					Add Map
+						Window nMID
+						Layer sFrom & "_2_" & sQueryName, sQueryName
+						DestGrouplayer sOriginAreaType
+				End If
+
+				Set Map
+					Window nMID
+					Layer sFrom & "_2_" & sQueryName
+						Display Global
+						Global Line (3,3,8388608)
+					Layer sQueryName
+						Display Global
+						Global Pen MENUGetLayerPen(sTo & "s") Global Brush MENUGetLayerBrush(sTo & "s")
+						Alpha 127
+				Call DebugPrint("2 layers have been configured.")
+			End If
+		Next
+
+		sZoomLayer	= sTo & "s_" & IIf(nCounts(1) > nCounts(2), "Home", "Work") & "_DD"
+	Else
+		sQueryName		= sTo & "s_DD"
+
+		'New Query using Join
+		Select *
+			From msTabBoundary As "b", msTabOrigin2Dest As "od"
+			Where b.Area_ID = od.Dest_Area_ID
+			And od.Origin_Area_ID = sAreaID
+			And OBJ
+			Into sQueryName NoSelect
+		nCounts(1)	= TableInfo(sQueryName, TAB_INFO_NROWS)
+		Call DebugPrint(FormatNumber$(nCounts(1)) & " " & sTo & "(s) found.")
+
+		If nCounts(1) = 0 Then
+			Call RBNNotificationShow(PRGIGetApplicationName(), "No " & sTo & " Dynamic Demographic Polygons found for Area_ID '" & sAreaID & "'!", Notify_Error, 2500)
+			Call TABClose(sQueryName)
+			Exit Sub
+		Else
+			Select q.*, ConnectObjects(Centroid(oFrom), Centroid(q.OBJ), TRUE) Object
+				From sQueryName As "q"
+				Into sFrom & "_2_" & sQueryName NoSelect
+			Call DebugPrint(FormatNumber$(TableInfo(sFrom & "_2_" & sQueryName, TAB_INFO_NROWS)) & " " & sFrom & " to " & sTo & "(s) calculated.")
+
+			sZoomLayer	= sFrom & "_2_" & sQueryName
+
+			Add Map
+				Window nMID
+				Layer sFrom & "_2_" & sQueryName
+					, sQueryName
+
+			Set Map
+				Window nMID
+				Layer sFrom & "_2_" & sQueryName
+					Display Global
+					Global Line (3,3,8388608)
+				Layer sQueryName
+					Display Global
+					Global Global Pen MENUGetLayerPen(sTo & "s") Global Brush MENUGetLayerBrush(sTo & "s")
+					Alpha 127
+			Call DebugPrint("2 layers have been configured.")
+		End If
+	End If
+
+	Call DebugPrint("Zooming to extent of layer '" & sZoomLayer & "'")
 	Set Window nMID Enhanced On
 	Set Map
 		Window nMID
-		Zoom Entire Layer Origin_2_Destinations_DD
+		Zoom Entire Layer sZoomLayer
 
-	Call RBNNotificationShow(PRGIGetApplicationName(), "Origin " & sAreaID & " has " & FormatNumber$(TableInfo(Destinations_DD, TAB_INFO_NROWS)) & " destinations", Notify_Info, 10000)
+	If mbSplitByHomeWork Then
+		Call RBNNotificationShow(PRGIGetApplicationName(), sFrom & " " & sAreaID & " has "
+					& FormatNumber$(nCounts(1)) & " Home " & sTo & "s and "
+					& FormatNumber$(nCounts(2)) & " Work " & sTo & "s"
+				, Notify_Info, 10000)
+	Else
+		Call RBNNotificationShow(PRGIGetApplicationName(), sFrom & " " & sAreaID & " has "
+					& FormatNumber$(nCounts(1)) & " " & sTo & "s"
+				, Notify_Info, 10000)
+	End If
 
 	Exit Sub
 '-------------------------
@@ -568,3 +742,67 @@ ErrorOccured:
 	Call ERRShow()
 
 End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
+Function MENUGetLayerPen(ByVal sType As String) As Pen
+
+OnError GoTo ErrorOccured
+
+MENUGetLayerPen = MakePen(2,1,45056)
+
+	Do Case sType
+		Case "Origin"
+			MENUGetLayerPen = MakePen(2,1,16711680)
+		Case "Origins"
+			MENUGetLayerPen = MakePen(2,1,16711680)
+		Case "Destination"
+			MENUGetLayerPen = MakePen(2,1,45056)
+		Case "Destinations"
+			MENUGetLayerPen = MakePen(2,1,45056)
+	End Case
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "MENUGetLayerPen")
+	Call ERRShow()
+
+End Function
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
+Function MENUGetLayerBrush(ByVal sType As String) As Pen
+
+OnError GoTo ErrorOccured
+
+MENUGetLayerBrush = MakePen(2,1,45056)
+
+	Do Case sType
+		Case "Origin"
+			MENUGetLayerBrush = MakeBrush(2,16711680,16777215)
+		Case "Origins"
+			MENUGetLayerBrush = MakeBrush(2,16711680,16777215)
+		Case "Destination"
+			MENUGetLayerBrush = MakeBrush(2,45056,45056)
+		Case "Destinations"
+			MENUGetLayerBrush = MakeBrush(2,45056,45056)
+	End Case
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "MENUGetLayerBrush")
+	Call ERRShow()
+
+End Function
