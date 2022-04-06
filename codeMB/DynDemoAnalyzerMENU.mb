@@ -16,10 +16,9 @@ Include "Library\Defaults.def"
 Include "Library\MI_ICONS_X64.def"
 Include "Library\RibbonElements.def"
 
-
 Define xProgram 		"Dynamic Demograpic Analyzer"
 Define xProgramMenu		"DynamicDemograpicAnalyzer"
-Define xVersion 		"1.2.0"
+Define xVersion 		"1.3.1"
 Define xYear			"2022"
 Define xAddToMenuBar	FALSE
 
@@ -31,6 +30,7 @@ Include "Library\Types\T_LAYER_SETTINGS.def"
 Include "Library\Types\T_LABEL_SETTINGS.def"
 Include "Library\Types\T_GROUP_LAYER_INFO.def"
 Include "Library\Types\T_LAYER_INFO.def"
+Include "Library\ARRAYLib.def"
 Include "Library\CONFIGFILELib.def"
 Include "Library\DEBUGLib.def"
 Include "Library\ERRORLib.def"
@@ -40,11 +40,45 @@ Include "Library\ProgramInfo.def"
 Include "Library\RIBBONLib.def"
 Include "Library\TABLELib.def"
 
+Include "DDConfigDlg.def"
+
 '-----------------------------------------------------------------------------------------
 Declare Sub Main
 Declare Sub MENUEnableDisableControls
 Declare Sub EndProgram
 Declare Sub EndHandler
+
+Declare Sub MENUConfiguration
+Declare Sub MENUWriteConfigFile
+Declare Sub MENUReadConfigFile
+Declare Sub MENUSaveAs
+
+Declare Function MENUCreateFromQueryTable(	  ByVal oPoint As Object			'Location to Query
+									, ByVal sTable As String			'Table with DD Boundaries to query
+									, ByVal sColumnAreaID As String	'Column with Area_ID
+									, ByVal sQueryName As String		'Name of resulting query
+									) As String					'Returns the Area ID
+Declare Function MENUCreateToQueryTables( ByVal oFromPolygon As Object		'Polygon of the starting position
+								, ByVal sAreaID As String			'Area_ID to search for
+								, ByVal sOriginAreaType As String		'Origin AreaType to search use
+								, ByVal sTabBoundary As String		'Table with DD Boundaries to query
+								, ByVal sColB_AreaID As String		'Column with Area_ID
+								, ByVal sTabOrigin2Dest As String		'Table with Origin 2 Destinations to query
+								, ByVal sColOD_AreaID As String		'Column with Area_ID - of the start point
+								, ByVal sColOD_AreaIDStart As String	'Column with Area_ID - of the end point
+								, ByVal sColOD_OriginAreaType As String	'Column with Origin_Area_Type
+								, ByVal sQueryNameArea As String		'Name of resulting query with polygons
+								, ByVal sQueryNameLine As String		'Name of resulting query with lines
+								) As Integer						'Number of Rows Selected, 0 if none were found
+Declare Sub MENUAddFromQueryTablesToMap(  ByVal nMID As Integer
+								, ByVal sQueryName As String
+								, ByVal sToFromType As String)
+Declare Sub MENUAddToQueryTablesToMap(	  ByVal nMID As Integer
+								, ByVal sQueryNameArea As String
+								, ByVal sQueryNameLine As String
+								, ByVal sToFromType As String
+								, ByVal sOriginAreaType As String)
+
 
 Declare Sub MENUDestination2Origins
 Declare Sub MENUOrigin2Destinations
@@ -55,11 +89,15 @@ Declare Sub MENUSelectTableDDBoundary
 Declare Function MENUGetLayerPen(ByVal sType As String) As Pen
 Declare Function MENUGetLayerBrush(ByVal sType As String) As Pen
 
+Type T_DD_RESULT
+	sQueryTable 		As String
+	sToFromType 		As String
+	sOriginAreaType	As String
+End Type
 
-Dim	msFileBoundary, msFileOrigin2Dest As String,
-	msTabBoundary, msTabOrigin2Dest As String,
-	mnDDAnalyzerIdx As Integer,
-	mbSplitByHomeWork As Logical
+Dim	msTabBoundary, msTabOrigin2Dest, marrQueryNames() As String,
+	mtarrResults(0) As T_DD_RESULT
+'Dim	marrQueryTypes() As String
 
 '**********************************************************************************************''
 '**   Created by Peter Horsbøll Møller, Precisely
@@ -67,7 +105,7 @@ Dim	msFileBoundary, msFileOrigin2Dest As String,
 '**********************************************************************************************''
 Sub Main
 
-Dim	sTabName, sGroupName As String,
+Dim	sTabName, sGroupName, sFile As String,
 	nCtrlIdx As Integer
 
 OnError GoTo ErrorOccured
@@ -108,52 +146,47 @@ OnError GoTo ErrorOccured
 		Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUOrigin2Destinations")
 	End If
 
+	nCtrlIdx = RBNGroupAddControl("cmdSaveAs", "Save Result as", "", ControlType_Button, sTabName, sGroupName)
+	If nCtrlIdx > 0 Then
+		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Create a Origin to Destination Analysis.", "")
+		Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_LARGE, "", ApplicationDirectory$() & "DDSaveAs.png")
+		Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUSaveAs")
+	End If
+
 
 	'****************************************************************************************
 	' C O N T R O L S   A D D E D   T O   A P P L I C A T I O N   C O N T E X T   M E N U
 	'****************************************************************************************
 	'**Application Context Menu
-	nCtrlIdx	= RBNToolContextMenuAddMenuItem("cmdSetBoundaryFile", "Set Boundary File...", "")
+'	nCtrlIdx	= RBNToolContextMenuAddMenuItem("cmdSetBoundaryFile", "Set Boundary File...", "")
+'	If nCtrlIdx > 0 Then
+'		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Select file with Boundaries.", "")
+'		Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_SMALL, MI_IMG_MAP_OPENTABLE_16, MI_IMG_MAP_OPENTABLE_32)
+'		Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUSelectTableDDBoundary")
+'	End If
+'
+'	nCtrlIdx	= RBNToolContextMenuAddMenuItem("cmdSetOrig2Dest", "Set Origin to Destination File...", "")
+'	If nCtrlIdx > 0 Then
+'		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Select file with Origin to Destination.", "")
+'		Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_SMALL, MI_IMG_MAP_OPENTABLE_16, MI_IMG_MAP_OPENTABLE_32)
+'		Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUSelectTableDDOrig2Dest")
+'	End If
+
+	nCtrlIdx	= RBNToolContextMenuAddMenuItem("cmdConfiguration", "Configuration...", "")
 	If nCtrlIdx > 0 Then
-		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Select file with Boundaries.", "")
+		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Open configuration dialog for Dynamic Demographic Analyzer", "")
 		Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_SMALL, MI_IMG_MAP_OPENTABLE_16, MI_IMG_MAP_OPENTABLE_32)
-		Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUSelectTableDDBoundary")
+		Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUConfiguration")
 	End If
 
-	nCtrlIdx	= RBNToolContextMenuAddMenuItem("cmdSetOrig2Dest", "Set Origin to Destination File...", "")
-	If nCtrlIdx > 0 Then
-		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Select file with Origin to Destination.", "")
-		Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_SMALL, MI_IMG_MAP_OPENTABLE_16, MI_IMG_MAP_OPENTABLE_32)
-		Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUSelectTableDDOrig2Dest")
-	End If
+	Call MENUReadConfigFile
 
-	'**Reading Configuration File
-	mbSplitByHomeWork	= IIf(CONFIGReadKey(FILE_INI, "CONFIGURATION", "SPLIT_HOMEWORK")="1", TRUE, FALSE)
-	Call DebugPrint("Split result tables by HOME/WORK: " & IIf(mbSplitByHomeWork, "Yes", "No"))
-
-	msFileBoundary = CONFIGReadKey(FILE_INI, "DD_TABFILES", "HEX_BOUNDARY")
-'	Call DebugPrint("1. Boundary File: " & msFileBoundary)
-	If msFileBoundary <> "" Then
-		msFileBoundary		= FILEGetAbsolutePath(ApplicationDirectory$(), msFileBoundary)
-	End If
-	msFileOrigin2Dest	= CONFIGReadKey(FILE_INI, "DD_TABFILES", "ORIG2DEST")
-'	Call DebugPrint("1. Origin2Dest File: " & msFileOrigin2Dest)
-	If msFileOrigin2Dest <> "" Then
-		msFileOrigin2Dest	= FILEGetAbsolutePath(ApplicationDirectory$(), msFileOrigin2Dest)
-	End If
-
-'	msTabBoundary		= PathToTableName$(msFileBoundary)
-'	msTabOrigin2Dest	= PathToTableName$(msFileOrigin2Dest)
-
-	Call DebugPrint("2. Boundary File: " & msFileBoundary)
-	Call DebugPrint("2. Origin2Dest File: " & msFileOrigin2Dest)
-
-	If msFileBoundary = "" Then
-		Call MENUSelectTableDDBoundary
-	End If
-	If msFileOrigin2Dest = "" Then
-		Call MENUSelectTableDDOrig2Dest
-	End If
+'	If DDCGetBoundaryFile() = "" Then
+'		Call MENUSelectTableDDBoundary
+'	End If
+'	If DDCGetOrigin2DestFile() = "" Then
+'		Call MENUSelectTableDDOrig2Dest
+'	End If
 
 	Call MENUEnableDisableControls
 
@@ -174,7 +207,7 @@ Sub MENUEnableDisableControls
 
 OnError GoTo ErrorOccured
 
-	If msFileBoundary = "" Or msFileOrigin2Dest = "" Then
+	If DDCGetBoundaryFile() = "" Or DDCGetOrigin2DestFile() = "" Then
 		Call RBNGroupEnableControls("", "", "cmdDDAnalyzerD2O", FALSE)
 		Call RBNGroupEnableControls("", "", "cmdDDAnalyzerO2D", FALSE)
 	Else
@@ -215,9 +248,6 @@ Sub EndHandler
 
 OnError GoTo ErrorOccured
 
-	'**Writing configurations to config file
-	Call CONFIGWriteKey(FILE_INI, "CONFIGURATION", "SPLIT_HOMEWORK", IIf(mbSplitByHomeWork, "1", "0"))
-
 	Call RBNEndHandler
 	Exit Sub
 '-------------------------
@@ -237,17 +267,16 @@ Dim	sFile As String
 
 OnError GoTo ErrorOccured
 
-	sFile = FileOpenDlg(PathToDirectory$(msFileOrigin2Dest), PathToFileName$(msFileOrigin2Dest), "TAB", "Select Origin to Destination Dynamic Demographic file...")
+	sFile = FileOpenDlg(PathToDirectory$(DDCGetOrigin2DestFile()), PathToFileName$(DDCGetOrigin2DestFile()), "TAB", "Select Origin to Destination Dynamic Demographic file...")
 	If sFile = "" Then
 		Exit Sub
 	End If
 
-	msFileOrigin2Dest	= sFile
-'	msTabOrigin2Dest	= PathToTableName$(msFileOrigin2Dest)
+	Call DDCSetOrigin2DestFile(sFile)
 
 	Call MENUEnableDisableControls
 
-	Call CONFIGWriteKey(FILE_INI, "DD_TABFILES", "ORIG2DEST", FILEGetRelativePath(ApplicationDirectory$(), msFileOrigin2Dest))
+'	Call CONFIGWriteKey(FILE_INI, "DD_TABFILES", "ORIG2DEST", FILEGetRelativePath(ApplicationDirectory$(), DDCGetOrigin2DestFile()))
 
 	Exit Sub
 '-------------------------
@@ -267,22 +296,502 @@ Dim	sFile As String
 
 OnError GoTo ErrorOccured
 
-	sFile = FileOpenDlg(PathToDirectory$(msFileBoundary), PathToFileName$(msFileBoundary), "TAB", "Select Dynamic Demographic Boundary file...")
+	sFile = FileOpenDlg(PathToDirectory$(DDCGetBoundaryFile()), PathToFileName$(DDCGetBoundaryFile()), "TAB", "Select Dynamic Demographic Boundary file...")
 	If sFile = "" Then
 		Exit Sub
 	End If
 
-	msFileBoundary	= sFile
-'	msTabBoundary	= PathToTableName$(msFileBoundary)
+	Call DDCSetBoundaryFile(sFile)
 
 	Call MENUEnableDisableControls
 
-	Call CONFIGWriteKey(FILE_INI, "DD_TABFILES", "HEX_BOUNDARY", FILEGetRelativePath(ApplicationDirectory$(), msFileBoundary))
+'	Call CONFIGWriteKey(FILE_INI, "DD_TABFILES", "HEX_BOUNDARY", FILEGetRelativePath(ApplicationDirectory$(), DDCGetBoundaryFile()))
 
 	Exit Sub
 '-------------------------
 ErrorOccured:
 	Call ERRCreate(Err(), Error$(), "MENUSelectTableBoundary")
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub MENUConfiguration
+
+OnError GoTo ErrorOccured
+
+	If DDConfigDlg() Then
+		Call MENUWriteConfigFile
+	End If
+
+	Call MENUEnableDisableControls
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "MENUConfiguration")
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub MENUWriteConfigFile
+
+Dim	nName As Integer,
+	tLyr As T_LAYER_SETTINGS,
+	tLbl As T_LABEL_SETTINGS
+
+OnError GoTo ErrorOccured
+
+	'**Writing configurations to config file
+	Call CONFIGWriteKey(FILE_INI, "DD_TABFILES", "HEX_BOUNDARY", FILEGetRelativePath(ApplicationDirectory$(), DDCGetBoundaryFile()))
+	Call CONFIGWriteKey(FILE_INI, "DD_TABFILES", "ORIG2DEST", FILEGetRelativePath(ApplicationDirectory$(), DDCGetOrigin2DestFile()))
+
+	Call CONFIGWriteKey(FILE_INI, "CONFIGURATION", "SPLIT_HOMEWORK", IIf(DDCSplitByWorkerHome(), "1", "0"))
+
+'	Call DEBUGPrint("Writing Layer Settings...")
+	For nName = 1 To Ubound(marrQueryNames)
+'		Call DEBUGPrint(nName & " " & marrQueryNames(nName) & "...")
+'		If DCCGetLayerSettings(marrQueryNames(nName), marrQueryTypes(nName), tLyr, tLbl) Then
+		If DCCGetLayerSettings(marrQueryNames(nName), tLyr, tLbl) Then
+'			Call DEBUGPrint("Write Config " & marrQueryNames(nName) & ": Brush Overrides: " & Ubound(tLyr.brsOverride))
+			Call CONFIGWriteKey(FILE_INI, "LAYERSETTINGS", marrQueryNames(nName), tlsToString(tLyr))
+			Call CONFIGWriteKey(FILE_INI, "LABELSETTINGS", marrQueryNames(nName), tlbsToString(tLbl))
+		End If
+	Next
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "MENUWriteConfigFile")
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub MENUReadConfigFile
+
+Dim	sName, sType, sTo, sFrom, sFile, sSetting As String,
+	nName, i As Integer,
+	tLyr As T_LAYER_SETTINGS,
+	tLbl AS T_LABEL_SETTINGS
+
+OnError GoTo ErrorOccured
+
+	'**Reading Configuration File
+'	mbSplitByHomeWork	= IIf(CONFIGReadKey(FILE_INI, "CONFIGURATION", "SPLIT_HOMEWORK")="1", TRUE, FALSE)
+	Call DDCSetSplitByWorkerHome(IIf(CONFIGReadKey(FILE_INI, "CONFIGURATION", "SPLIT_HOMEWORK")="1", TRUE, FALSE))
+'	Call DebugPrint("Split result tables by HOME/WORK: " & IIf(DDCSplitByWorkerHome(), "Yes", "No"))
+
+	'***************************************************************************
+	sFile = CONFIGReadKey(FILE_INI, "DD_TABFILES", "HEX_BOUNDARY")
+'	Call DebugPrint("1. Boundary File: " & sFile)
+	If sFile <> "" Then
+		sFile		= FILEGetAbsolutePath(ApplicationDirectory$(), sFile)
+	End If
+	Call DDCSetBoundaryFile(sFile)
+
+	sFile	= CONFIGReadKey(FILE_INI, "DD_TABFILES", "ORIG2DEST")
+'	Call DebugPrint("1. Origin2Dest File: " & sFile)
+	If sFile <> "" Then
+		sFile	= FILEGetAbsolutePath(ApplicationDirectory$(), sFile)
+	End If
+	Call DDCSetOrigin2DestFile(sFile)
+
+'	Call DebugPrint("2. Boundary File: " & DDCGetBoundaryFile())
+'	Call DebugPrint("2. Origin2Dest File: " & DDCGetOrigin2DestFile())
+
+	'***************************************************************************
+	For i = 1 To 2
+		sTo		= IIf(i = 1, "Origin", "Destination")
+		sFrom	= IIf(i = 1, "Destination", "Origin")
+		Call ARRAYAddValueString(marrQueryNames, sTo & "_DD")
+		Call ARRAYAddValueString(marrQueryNames, sTo & "s_DD")
+		Call ARRAYAddValueString(marrQueryNames, sTo & "s_Home_DD")
+		Call ARRAYAddValueString(marrQueryNames, sTo & "s_Work_DD")
+		Call ARRAYAddValueString(marrQueryNames, sFrom & "_2_" & sTo & "s_DD")
+		Call ARRAYAddValueString(marrQueryNames, sFrom & "_2_" & sTo & "s_Home_DD")
+		Call ARRAYAddValueString(marrQueryNames, sFrom & "_2_" & sTo & "s_Work_DD")
+
+'		Call ARRAYAddValueString(marrQueryTypes, sTo)
+'		Call ARRAYAddValueString(marrQueryTypes, sTo)
+'		Call ARRAYAddValueString(marrQueryTypes, sTo)
+'		Call ARRAYAddValueString(marrQueryTypes, sTo)
+'		Call ARRAYAddValueString(marrQueryTypes, sTo & " Lines")
+'		Call ARRAYAddValueString(marrQueryTypes, sTo & " Lines")
+'		Call ARRAYAddValueString(marrQueryTypes, sTo & " Lines")
+	Next
+
+'	Call DEBUGPrint("Reading Layer Settings...")
+	For nName = 1 To Ubound(marrQueryNames)
+
+'		Call DEBUGPrint("Reading Layer Setting " & marrQueryNames(nName))
+		sSetting = CONFIGReadKey(FILE_INI, "LAYERSETTINGS", marrQueryNames(nName))
+		If sSetting = "" Then
+			tLyr.bSelectable	= TRUE
+			tLyr.nDisplay		= LAYER_INFO_DISPLAY_GLOBAL
+			If marrQueryNames(nName) Like "%_2_%" Then
+				ReDim tLyr.penOverrideLine(1)
+				tLyr.penOverrideLine(1)		= MakePen(3,3,8388608)
+			Else
+				Call tlsReset(tLyr)
+				tLyr.nAlpha				= 147
+				tLyr.penOverrideBorder(1)	= MENUGetLayerPen(sTo)
+				tLyr.brsOverride(1)			= MENUGetLayerBrush(sTo)
+			End If
+
+			Call tlbsReset(tLbl)
+		Else
+			If Not tlsFromString(tLyr, sSetting) Then
+				If marrQueryNames(nName) Like "%_2_%" Then
+					ReDim tLyr.penOverrideLine(1)
+					tLyr.penOverrideLine(1)		= MakePen(3,3,8388608)
+				Else
+					Call tlsReset(tLyr)
+					tLyr.nAlpha				= 147
+					tLyr.penOverrideBorder(1)	= MENUGetLayerPen(sTo)
+					tLyr.brsOverride(1)			= MENUGetLayerBrush(sTo)
+				End If
+			End If
+			sSetting = CONFIGReadKey(FILE_INI, "LABELSETTINGS", marrQueryNames(nName))
+			If sSetting = "" Then
+				Call tlbsReset(tLbl)
+			Else
+				If Not tlbsFromString(tLbl, sSetting) Then
+
+				End If
+			End If
+		End If
+'		Call DCCAddLayerSettings(marrQueryNames(nName), marrQueryTypes(nName), tLyr, tLbl)
+		Call DCCAddLayerSettings(marrQueryNames(nName), tLyr, tLbl)
+	Next
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "MENUReadConfigFile")
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub MENUSaveAs
+
+Dim	sTab, sFile, sPath As String,
+	i, nItem, nMID As Integer
+
+OnError GoTo ErrorOccured
+
+	nMID = FrontWindow()
+	If nMID = 0 Then
+		Note "Please open map window before using this feature!"
+		Exit Sub
+	End If
+	If Not WindowInfo(nMID, WIN_INFO_TYPE) = WIN_MAPPER Then
+		Note "Please make a map window active before using this feature!"
+		Exit Sub
+	End If
+
+	If Ubound(mtarrResults) = 0 Then
+		Note "Please run an analysis before trying to save the result!"
+		Exit Sub
+	End If
+
+
+	sTab	= mtarrResults(1).sQueryTable
+	If sTab = "" Then
+		Note "Please run an analysis before trying to save the result!"
+		Exit Sub
+	End If
+
+	sFile = FileSaveAsDlg("", sTab, "TAB", "Specify location to save analysis result...")
+	If sFile = "" Then
+		Exit Sub
+	End If
+	sPath	= PathToDirectory$(sFile)
+
+	For i = 1 To Ubound(mtarrResults)
+		If not TABIsOpen(mtarrResults(i).sQueryTable) Then
+			Note "All Analysis results do not exist. Table '" & mtarrResults(i).sQueryTable & "' is not open!"
+			Exit Sub
+		End If
+	Next
+
+	For i = 1 To Ubound(mtarrResults)
+		Call DEBUGPrint("Saving '" & mtarrResults(i).sQueryTable & "' into '" & sPath & mtarrResults(i).sQueryTable & "'")
+		Commit Table mtarrResults(i).sQueryTable As sPath & mtarrResults(i).sQueryTable
+		Close Table mtarrResults(i).sQueryTable
+		Open Table sPath & mtarrResults(i).sQueryTable
+	Next
+
+	Call MENUAddFromQueryTablesToMap(nMID, mtarrResults(1).sQueryTable, mtarrResults(1).sToFromType)
+
+	For i = 1 To 2
+		If i = 2 And Ubound(mtarrResults) = 3 Then
+			Exit For
+		End If
+
+		nItem = i * 2
+		Call MENUAddToQueryTablesToMap(nMID, mtarrResults(nItem).sQueryTable, mtarrResults(nItem + 1).sQueryTable, mtarrResults(nItem).sToFromType, mtarrResults(nItem).sOriginAreaType)
+	Next
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "MENUSaveAs")
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
+Function MENUCreateFromQueryTable(	  ByVal oPoint As Object			'Location to Query
+							, ByVal sTable As String			'Table with DD Boundaries to query
+							, ByVal sColumnAreaID As String	'Column with Area_ID
+							, ByVal sQueryName As String		'Name of resulting query
+							) As String					'Returns the Area ID
+
+Dim	sAreaID As String,
+	aAreaID As Alias
+
+OnError GoTo ErrorOccured
+
+MENUCreateFromQueryTable = ""
+
+	Select *
+		From sTable
+		Where oPoint Within OBJ
+		Into __currDD NoSelect Hide
+
+	If TableInfo(__currDD, TAB_INFO_NROWS) = 0 Then
+		Call RBNNotificationShow(PRGIGetApplicationName(), "No Dynamic Demographic Polygon found at that location!", Notify_Error, 2500)
+		Close Table __currDD
+		Exit Function
+	End If
+
+	Fetch First From __currDD
+	sAreaID	= __currDD.Area_ID
+
+	Close Table __currDD
+
+	aAreaID	= sTable & "." & sColumnAreaID
+	Select *
+		From sTable
+		Where aAreaID = sAreaID
+		And OBJ
+		Into sQueryName NoSelect
+
+	If TableInfo(sQueryName, TAB_INFO_NROWS) = 0 Then
+		Close Table sQueryName
+		Call RBNNotificationShow(PRGIGetApplicationName(), "No Dynamic Demographic Polygons found for Area_ID '" & sAreaID & "'!", Notify_Error, 2500)
+		Exit Function
+	End If
+
+MENUCreateFromQueryTable = sAreaID
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "MENUCreateFromQueryTable")
+	Call ERRShow()
+
+End Function
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
+Function MENUCreateToQueryTables(	  ByVal oFromPolygon As Object		'Polygon of the starting position
+							, ByVal sAreaID As String			'Area_ID to search for
+							, ByVal sOriginAreaType As String		'Origin AreaType to search use
+							, ByVal sTabBoundary As String		'Table with DD Boundaries to query
+							, ByVal sColB_AreaID As String		'Column with Area_ID
+							, ByVal sTabOrigin2Dest As String		'Table with Origin 2 Destinations to query
+							, ByVal sColOD_AreaID As String		'Column with Area_ID - of the start point
+							, ByVal sColOD_AreaIDStart As String	'Column with Area_ID - of the end point
+							, ByVal sColOD_OriginAreaType As String	'Column with Origin_Area_Type
+							, ByVal sQueryNameArea As String		'Name of resulting query with polygons
+							, ByVal sQueryNameLine As String		'Name of resulting query with lines
+							) As Integer						'Number of Rows Selected, 0 if none were found
+
+Dim	nNumRows As Integer,
+	aB_AreaID As Alias,
+	aOD_OriginAreaType, aOD_AreaID, aOD_AreaIDStart As Alias
+
+OnError GoTo ErrorOccured
+
+MENUCreateToQueryTables = 0
+
+	aB_AreaID			= sTabBoundary & "." & sColB_AreaID
+
+	aOD_OriginAreaType	= sTabOrigin2Dest & "." & sColOD_OriginAreaType
+	aOD_AreaID		= sTabOrigin2Dest & "." & sColOD_AreaID
+	aOD_AreaIDStart	= sTabOrigin2Dest & "." & sColOD_AreaIDStart
+
+	'New Query using Join
+	If sOriginAreaType = "" Then
+		Call DEBUGPrint("Select * From " & sTabBoundary & ", " & sTabOrigin2Dest
+					& " Where " & sTabBoundary & "." & sColB_AreaID & " = " & sTabOrigin2Dest & "." & sColOD_AreaID
+					& " And " & sTabOrigin2Dest & "." & sColOD_AreaIDStart & " = " & Chr$(34) & sAreaID & Chr$(34)
+					& " And OBJ Into " & sQueryNameArea & " NoSelect")
+
+		Select *
+			From sTabBoundary, sTabOrigin2Dest
+			Where aB_AreaID = aOD_AreaID
+			And aOD_AreaIDStart = sAreaID
+			And OBJ
+			Into sQueryNameArea NoSelect
+	Else
+		Call DEBUGPrint("Select * From " & sTabBoundary & ", " & sTabOrigin2Dest
+					& " Where " & sTabBoundary & "." & sColB_AreaID & " = " & sTabOrigin2Dest & "." & sColOD_AreaID
+					& " And " & sTabOrigin2Dest & "." & sColOD_OriginAreaType & " = " & Chr$(34) & sOriginAreaType & Chr$(34)
+					& " And " & sTabOrigin2Dest & "." & sColOD_AreaIDStart & " = " & Chr$(34) & sAreaID & Chr$(34)
+					& " And OBJ Into " & sQueryNameArea & " NoSelect")
+
+		Select *
+			From sTabBoundary, sTabOrigin2Dest
+			Where aB_AreaID = aOD_AreaID
+			And aOD_OriginAreaType = sOriginAreaType
+			And aOD_AreaIDStart = sAreaID
+			And OBJ
+			Into sQueryNameArea NoSelect
+	End If
+	nNumRows	= TableInfo(sQueryNameArea, TAB_INFO_NROWS)
+
+	If nNumRows = 0 Then
+		Call TABClose(sQueryNameArea)
+		Exit Function
+	End If
+
+	If sQueryNameLine <> "" Then
+		Select q.*, ConnectObjects(Centroid(oFromPolygon), Centroid(q.OBJ), TRUE) Object
+			From sQueryNameArea As "q"
+			Into sQueryNameLine NoSelect
+	End If
+
+	MENUCreateToQueryTables = nNumRows
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "MENUCreateToQueryTables")
+	Call ERRShow()
+
+End Function
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub MENUAddFromQueryTablesToMap(	  ByVal nMID As Integer
+							, ByVal sQueryName As String
+							, ByVal sToFromType As String)
+
+OnError GoTo ErrorOccured
+
+	Add Map
+		Window nMID
+		Layer sQueryName
+
+	If Not DCCApplyLayerSettings(nMID, sQueryName) Then
+		Set Map
+			Window nMID
+			Layer sQueryName
+				Display Global Global Pen MENUGetLayerPen(sToFromType) Global Brush MENUGetLayerBrush(sToFromType)
+				Alpha 127
+		Call DebugPrint("Layer '" & sQueryName & "' has been manually configured.")
+	End If
+
+OnError GoTo ErrorOccured
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "MENUAddFromQueryTablesToMap")
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub MENUAddToQueryTablesToMap(  ByVal nMID As Integer
+						, ByVal sQueryNameArea As String
+						, ByVal sQueryNameLine As String
+						, ByVal sToFromType As String
+						, ByVal sOriginAreaType As String)
+
+Dim	nGroupLayerID As Integer
+
+OnError GoTo ErrorOccured
+
+	If sOriginAreaType = "" Then
+		Add Map
+			Window nMID
+			Layer sQueryNameLine, sQueryNameArea
+	Else
+		nGroupLayerID = GLYRGetGroupLayerID(nMID, 0, sOriginAreaType, TRUE)
+		If nGroupLayerID < 0 Then
+			Call DebugPrint("Creating NEW group layer '" & sOriginAreaType & "'")
+			Add Map
+				Window nMID
+				GroupLayer (sOriginAreaType, sQueryNameLine, sQueryNameArea) Position 2
+		Else
+			Call DebugPrint("Using EXISTING group layer '" & sOriginAreaType & "'")
+			Add Map
+				Window nMID
+				Layer sQueryNameLine, sQueryNameArea
+				DestGrouplayer sOriginAreaType
+		End If
+	End If
+
+	If Not DCCApplyLayerSettings(nMID, sQueryNameLine) Then
+		Set Map
+			Window nMID
+				Layer sQueryNameLine
+					Display Global Global Line (3,3,8388608)
+		Call DebugPrint("Layer '" & sQueryNameLine & "' has been manually configured.")
+	End If
+	If Not DCCApplyLayerSettings(nMID, sQueryNameArea) Then
+		Set Map
+			Window nMID
+				Layer sQueryNameArea
+					Display Global Global Pen MENUGetLayerPen(sToFromType) Global Brush MENUGetLayerBrush(sToFromType)
+					Alpha 127
+		Call DebugPrint("Layer '" & sQueryNameArea & "' has been manually configured.")
+	End If
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "MENUAddToQueryTablesToMap")
 	Call ERRShow()
 
 End Sub
@@ -295,9 +804,10 @@ End Sub
 Sub MENUDestination2Origins
 
 Dim	oPoint, oFrom As Object,
+	aOBJ As Alias,
 	fX, fY As Float,
 	sFrom, sTo, sAreaID, sQueryName, sZoomLayer, sOriginAreaType As String,
-	i, nMID, nGroupLayerID, nCounts(2) As Integer
+	i, nItem, nMID, nGroupLayerID, nCounts(2) As Integer
 
 OnError GoTo ErrorOccured
 
@@ -315,23 +825,23 @@ OnError GoTo ErrorOccured
 		Exit Sub
 	End If
 
-	msTabBoundary = TABGetNameFromTabFile(msFileBoundary)
+	msTabBoundary = TABGetNameFromTabFile(DDCGetBoundaryFile())
 	If msTabBoundary = "" Then
-		If FileExists(msFileBoundary) Then
-			Open Table msFileBoundary Interactive
+		If FileExists(DDCGetBoundaryFile()) Then
+			Open Table DDCGetBoundaryFile() Interactive
 		End If
-		msTabBoundary = TABGetNameFromTabFile(msFileBoundary)
+		msTabBoundary = TABGetNameFromTabFile(DDCGetBoundaryFile())
 		If msTabBoundary = "" Then
 			Exit Sub
 		End If
 	End If
 
-	msTabOrigin2Dest = TABGetNameFromTabFile(msFileOrigin2Dest)
+	msTabOrigin2Dest = TABGetNameFromTabFile(DDCGetOrigin2DestFile())
 	If msTabOrigin2Dest = "" Then
-		If FileExists(msFileOrigin2Dest) Then
-			Open Table msFileOrigin2Dest Interactive
+		If FileExists(DDCGetOrigin2DestFile()) Then
+			Open Table DDCGetOrigin2DestFile() Interactive
 		End If
-		msTabOrigin2Dest = TABGetNameFromTabFile(msFileOrigin2Dest)
+		msTabOrigin2Dest = TABGetNameFromTabFile(DDCGetOrigin2DestFile())
 		If msTabOrigin2Dest = "" Then
 			Exit Sub
 		End If
@@ -343,17 +853,6 @@ OnError GoTo ErrorOccured
 
 	oPoint = CreatePoint(fX, fY)
 
-	Select *
-		From msTabBoundary
-		Where oPoint Within OBJ
-		Into __currDD NoSelect Hide
-
-	If TableInfo(__currDD, TAB_INFO_NROWS) = 0 Then
-		Call RBNNotificationShow(PRGIGetApplicationName(), "No Dynamic Demographic Polygon found at that location!", Notify_Error, 2500)
-		Close Table __currDD
-		Exit Sub
-	End If
-
 	Call TABClose(sTo & "_DD")
 	Call TABClose(sFrom & "s_DD")
 	Call TABClose(sFrom & "s_Home_DD")
@@ -362,51 +861,92 @@ OnError GoTo ErrorOccured
 	Call TABClose(sTo & "_2_" & sFrom & "s_Home_DD")
 	Call TABClose(sTo & "_2_" & sFrom & "s_WORK_DD")
 
-	Fetch First From __currDD
-	sAreaID	= __currDD.Area_ID
-	oFrom	= __currDD.OBJ
-	Call DebugPrint(FormatNumber$(TableInfo(__currDD, TAB_INFO_NROWS)) & " " & sFrom & "(s) found. Using " & sAreaID)
+'	Select *
+'		From msTabBoundary
+'		Where oPoint Within OBJ
+'		Into __currDD NoSelect Hide
+'
+'	If TableInfo(__currDD, TAB_INFO_NROWS) = 0 Then
+'		Call RBNNotificationShow(PRGIGetApplicationName(), "No Dynamic Demographic Polygon found at that location!", Notify_Error, 2500)
+'		Close Table __currDD
+'		Exit Sub
+'	End If
+'
+'	Fetch First From __currDD
+'	sAreaID	= __currDD.Area_ID
+'	oFrom	= __currDD.OBJ
+'	Call DebugPrint(FormatNumber$(TableInfo(__currDD, TAB_INFO_NROWS)) & " " & sFrom & "(s) found. Using " & sAreaID)
+'
+'	Close Table __currDD
+'
+'	sQueryName	= sFrom & "_DD"
+'	Select *
+'		From msTabBoundary
+'		Where Area_ID = sAreaID
+'		And OBJ
+'		Into sQueryName NoSelect
+'	Call DebugPrint(FormatNumber$(TableInfo(sQueryName, TAB_INFO_NROWS)) & " " & sFrom & "(s) found using " & sAreaID)
+'
+'	If TableInfo(sQueryName, TAB_INFO_NROWS) = 0 Then
+'		Close Table sQueryName
+'		Call RBNNotificationShow(PRGIGetApplicationName(), "No Dynamic Demographic Polygons found for Area_ID '" & sAreaID & "'!", Notify_Error, 2500)
+'		Exit Sub
+'	End If
 
-	Close Table __currDD
-
-	Select *
-		From msTabBoundary
-		Where Area_ID = sAreaID
-		And OBJ
-		Into sFrom & "_DD" NoSelect
-	Call DebugPrint(FormatNumber$(TableInfo(sFrom & "_DD", TAB_INFO_NROWS)) & " " & sFrom & "(s) found using " & sAreaID)
-
-	If TableInfo(sFrom & "_DD", TAB_INFO_NROWS) = 0 Then
-		Close Table sFrom & "_DD"
-		Call RBNNotificationShow(PRGIGetApplicationName(), "No Dynamic Demographic Polygons found for Area_ID '" & sAreaID & "'!", Notify_Error, 2500)
+	sQueryName	= sFrom & "_DD"
+	sAreaID		= MENUCreateFromQueryTable(oPoint, msTabBoundary, "Area_ID", sQueryName)
+	If sAreaID = "" Then
 		Exit Sub
 	End If
+	Call DebugPrint(FormatNumber$(TableInfo(sQueryName, TAB_INFO_NROWS)) & " " & sFrom & "(s) found using " & sAreaID)
 
-	Add Map
-		Window nMID
-		Layer sFrom & "_DD"
-	Set Map
-		Window nMID
-		Layer sFrom & "_DD"
-			Display Global
-			Global Global Pen MENUGetLayerPen(sFrom) Global Brush MENUGetLayerBrush(sFrom)
-			Alpha 127
-	Call DebugPrint("1 layer has been configured.")
+	Fetch First From sQueryName
+	aOBJ		= sQueryName & ".OBJ"
+	oFrom	= aOBJ
 
-	If mbSplitByHomeWork Then
+	Call MENUAddFromQueryTablesToMap(nMID, sQueryName, sFrom)
+	Redim mtarrResults(1)
+	mtarrResults(1).sQueryTable 		= sQueryName
+	mtarrResults(1).sToFromType		= sFrom
+	mtarrResults(1).sOriginAreaType	= ""
+'	Add Map
+'		Window nMID
+'		Layer sQueryName
+'
+'	If Not DCCApplyLayerSettings(nMID, sQueryName) Then
+'		Set Map
+'			Window nMID
+'			Layer sQueryName
+'				Display Global Global Pen MENUGetLayerPen(sFrom) Global Brush MENUGetLayerBrush(sFrom)
+'				Alpha 127
+'			Call DebugPrint("Layer '" & sQueryName & "' has been manually configured.")
+'	End If
+
+	If DDCSplitByWorkerHome() Then
 		For i = 1 To 2
 			sOriginAreaType	= IIf(i = 1, "Home", "Work")
 			sQueryName		= sTo & "s_" & sOriginAreaType & "_DD"
 
+			nCounts(i)	= MENUCreateToQueryTables( oFrom, sAreaID, sOriginAreaType
+								, msTabBoundary, "Area_ID"
+								, msTabOrigin2Dest, "Origin_Area_ID", "Dest_Area_ID", "Origin_Area_Type"
+								, sQueryName, sFrom & "_2_" & sQueryName)
+
 			'New Query using Join
-			Select *
-				From msTabBoundary As "b", msTabOrigin2Dest As "od"
-				Where b.Area_ID = od.Origin_Area_ID
-				And od.Origin_Area_Type = sOriginAreaType
-				And od.Dest_Area_ID = sAreaID
-				And OBJ
-				Into sQueryName NoSelect
-			nCounts(i)	= TableInfo(sQueryName, TAB_INFO_NROWS)
+			Call DEBUGPrint("Select * From " & msTabBoundary & " As " & Chr$(34) & "b" & Chr$(34)
+						 & ", " & msTabOrigin2Dest & " As " & Chr$(34) & "od" & Chr$(34)
+						& " Where b.Area_ID = od.Origin_Area_ID"
+						& " And od.Origin_Area_Type = " & Chr$(34) & sOriginAreaType & Chr$(34)
+						& " And od.Dest_Area_ID = " & Chr$(34) & sAreaID & Chr$(34)
+						& " And OBJ Into " & sQueryName & " NoSelect")
+'			Select *
+'				From msTabBoundary As "b", msTabOrigin2Dest As "od"
+'				Where b.Area_ID = od.Origin_Area_ID
+'				And od.Origin_Area_Type = sOriginAreaType
+'				And od.Dest_Area_ID = sAreaID
+'				And OBJ
+'				Into sQueryName NoSelect
+'			nCounts(i)	= TableInfo(sQueryName, TAB_INFO_NROWS)
 			Call DebugPrint(FormatNumber$(nCounts(i)) & " " & sTo & "(s) found for '" & sOriginAreaType & "'.")
 
 			If nCounts(i) = 0 Then
@@ -414,35 +954,50 @@ OnError GoTo ErrorOccured
 				Call TABClose(sQueryName)
 				Exit Sub
 			Else
-				Select q.*, ConnectObjects(Centroid(oFrom), Centroid(q.OBJ), TRUE) Object
-					From sQueryName As "q"
-					Into sFrom & "_2_" & sQueryName NoSelect
-				Call DebugPrint(FormatNumber$(TableInfo(sFrom & "_2_" & sQueryName, TAB_INFO_NROWS)) & " " & sFrom & " to " & sTo & "(s) calculated for '" & sOriginAreaType & "'.")
+'				Select q.*, ConnectObjects(Centroid(oFrom), Centroid(q.OBJ), TRUE) Object
+'					From sQueryName As "q"
+'					Into sFrom & "_2_" & sQueryName NoSelect
+'				Call DebugPrint(FormatNumber$(TableInfo(sFrom & "_2_" & sQueryName, TAB_INFO_NROWS)) & " " & sFrom & " to " & sTo & "(s) calculated for '" & sOriginAreaType & "'.")
 
-				nGroupLayerID = GLYRGetGroupLayerID(nMID, 0, sOriginAreaType, TRUE)
-				If nGroupLayerID < 0 Then
-					Call DebugPrint("Creating NEW group layer '" & sOriginAreaType & "'")
-					Add Map
-						Window nMID
-						GroupLayer (sOriginAreaType, sFrom & "_2_" & sQueryName, sQueryName) Position 2
-				Else
-					Call DebugPrint("Using EXISTING group layer '" & sOriginAreaType & "'")
-					Add Map
-						Window nMID
-						Layer sFrom & "_2_" & sQueryName, sQueryName
-						DestGrouplayer sOriginAreaType
-				End If
+				Call MENUAddToQueryTablesToMap(nMID, sQueryName, sFrom & "_2_" & sQueryName, sTo & "s", sOriginAreaType)
+				nItem	= 2 * i
+				Redim mtarrResults(nItem + 1)
+				mtarrResults(nItem).sQueryTable 		= sQueryName
+				mtarrResults(nItem).sToFromType		= sTo & "s"
+				mtarrResults(nItem).sOriginAreaType	= sOriginAreaType
+				mtarrResults(nItem + 1).sQueryTable 	= sFrom & "_2_" & sQueryName
+				mtarrResults(nItem + 1).sToFromType	= sTo & "s"
+				mtarrResults(nItem + 1).sOriginAreaType	= sOriginAreaType
 
-				Set Map
-					Window nMID
-					Layer sFrom & "_2_" & sQueryName
-						Display Global
-						Global Line (3,3,8388608)
-					Layer sQueryName
-						Display Global
-						Global Pen MENUGetLayerPen(sTo & "s") Global Brush MENUGetLayerBrush(sTo & "s")
-						Alpha 127
-				Call DebugPrint("2 layers have been configured.")
+'				nGroupLayerID = GLYRGetGroupLayerID(nMID, 0, sOriginAreaType, TRUE)
+'				If nGroupLayerID < 0 Then
+'					Call DebugPrint("Creating NEW group layer '" & sOriginAreaType & "'")
+'					Add Map
+'						Window nMID
+'						GroupLayer (sOriginAreaType, sFrom & "_2_" & sQueryName, sQueryName) Position 2
+'				Else
+'					Call DebugPrint("Using EXISTING group layer '" & sOriginAreaType & "'")
+'					Add Map
+'						Window nMID
+'						Layer sFrom & "_2_" & sQueryName, sQueryName
+'						DestGrouplayer sOriginAreaType
+'				End If
+'
+'				If Not DCCApplyLayerSettings(nMID, sFrom & "_2_" & sQueryName) Then
+'					Set Map
+'						Window nMID
+'						Layer sFrom & "_2_" & sQueryName
+'							Display Global Global Line (3,3,8388608)
+'					Call DebugPrint("Layer '" & sFrom & "_2_" & sQueryName & "' has been manually configured.")
+'				End If
+'				If Not DCCApplyLayerSettings(nMID, sQueryName) Then
+'					Set Map
+'						Window nMID
+'						Layer sQueryName
+'							Display Global Global Pen MENUGetLayerPen(sTo & "s") Global Brush MENUGetLayerBrush(sTo & "s")
+'							Alpha 127
+'					Call DebugPrint("Layer '" & sQueryName & "' has been manually configured.")
+'				End If
 			End If
 		Next
 
@@ -450,14 +1005,19 @@ OnError GoTo ErrorOccured
 	Else
 		sQueryName		= sTo & "s_DD"
 
-		'New Query using Join
-		Select *
-			From msTabBoundary As "b", msTabOrigin2Dest As "od"
-			Where b.Area_ID = od.Origin_Area_ID
-			And od.Dest_Area_ID = sAreaID
-			And OBJ
-			Into sQueryName NoSelect
-		nCounts(1)	= TableInfo(sQueryName, TAB_INFO_NROWS)
+		nCounts(i)	= MENUCreateToQueryTables( oFrom, sAreaID, ""
+							, msTabBoundary, "Area_ID"
+							, msTabOrigin2Dest, "Origin_Area_ID", "Dest_Area_ID", ""
+							, sQueryName, sFrom & "_2_" & sQueryName)
+
+'		'New Query using Join
+'		Select *
+'			From msTabBoundary As "b", msTabOrigin2Dest As "od"
+'			Where b.Area_ID = od.Origin_Area_ID
+'			And od.Dest_Area_ID = sAreaID
+'			And OBJ
+'			Into sQueryName NoSelect
+'		nCounts(1)	= TableInfo(sQueryName, TAB_INFO_NROWS)
 		Call DebugPrint(FormatNumber$(nCounts(1)) & " " & sTo & "(s) found.")
 
 		If nCounts(1) = 0 Then
@@ -465,28 +1025,43 @@ OnError GoTo ErrorOccured
 			Call TABClose(sQueryName)
 			Exit Sub
 		Else
-			Select q.*, ConnectObjects(Centroid(oFrom), Centroid(q.OBJ), TRUE) Object
-				From sQueryName As "q"
-				Into sFrom & "_2_" & sQueryName NoSelect
-			Call DebugPrint(FormatNumber$(TableInfo(sFrom & "_2_" & sQueryName, TAB_INFO_NROWS)) & " " & sFrom & " to " & sTo & "(s) calculated.")
+'			Select q.*, ConnectObjects(Centroid(oFrom), Centroid(q.OBJ), TRUE) Object
+'				From sQueryName As "q"
+'				Into sFrom & "_2_" & sQueryName NoSelect
+'			Call DebugPrint(FormatNumber$(TableInfo(sFrom & "_2_" & sQueryName, TAB_INFO_NROWS)) & " " & sFrom & " to " & sTo & "(s) calculated.")
 
 			sZoomLayer	= sFrom & "_2_" & sQueryName
 
-			Add Map
-				Window nMID
-				Layer sFrom & "_2_" & sQueryName
-					, sQueryName
+			Call MENUAddToQueryTablesToMap(nMID, sQueryName, sFrom & "_2_" & sQueryName, sTo & "s", "")
+			nItem	= 2
+			Redim mtarrResults(nItem + 1)
+			mtarrResults(nItem).sQueryTable 		= sQueryName
+			mtarrResults(nItem).sToFromType		= sTo & "s"
+			mtarrResults(nItem).sOriginAreaType	= ""
+			mtarrResults(nItem + 1).sQueryTable 	= sFrom & "_2_" & sQueryName
+			mtarrResults(nItem + 1).sToFromType	= sTo & "s"
+			mtarrResults(nItem + 1).sOriginAreaType	= ""
 
-			Set Map
-				Window nMID
-				Layer sFrom & "_2_" & sQueryName
-					Display Global
-					Global Line (3,3,8388608)
-				Layer sQueryName
-					Display Global
-					Global Global Pen MENUGetLayerPen(sTo & "s") Global Brush MENUGetLayerBrush(sTo & "s")
-					Alpha 127
-			Call DebugPrint("2 layers have been configured.")
+'			Add Map
+'				Window nMID
+'				Layer sFrom & "_2_" & sQueryName
+'					, sQueryName
+'
+'			If Not DCCApplyLayerSettings(nMID, sFrom & "_2_" & sQueryName) Then
+'				Set Map
+'					Window nMID
+'					Layer sFrom & "_2_" & sQueryName
+'						Display Global Global Line (3,3,8388608)
+'				Call DebugPrint("Layer '" & sFrom & "_2_" & sQueryName & "' has been manually configured.")
+'			End If
+'			If Not DCCApplyLayerSettings(nMID, sQueryName) Then
+'				Set Map
+'					Window nMID
+'					Layer sQueryName
+'						Display Global Global Pen MENUGetLayerPen(sTo & "s") Global Brush MENUGetLayerBrush(sTo & "s")
+'						Alpha 127
+'				Call DebugPrint("Layer '" & sQueryName & "' has been manually configured.")
+'			End If
 		End If
 	End If
 
@@ -496,7 +1071,7 @@ OnError GoTo ErrorOccured
 		Window nMID
 		Zoom Entire Layer sZoomLayer
 
-	If mbSplitByHomeWork Then
+	If DDCSplitByWorkerHome() Then
 		Call RBNNotificationShow(PRGIGetApplicationName(), sFrom & " " & sAreaID & " has "
 					& FormatNumber$(nCounts(1)) & " Home " & sTo & "s and "
 					& FormatNumber$(nCounts(2)) & " Work " & sTo & "s"
@@ -523,9 +1098,10 @@ End Sub
 Sub MENUOrigin2Destinations
 
 Dim	oPoint, oFrom As Object,
+	aOBJ As Alias,
 	fX, fY As Float,
 	sFrom, sTo, sAreaID, sQueryName, sZoomLayer, sOriginAreaType As String,
-	i, nMID, nGroupLayerID, nCounts(2) As Integer
+	i, nItem, nMID, nGroupLayerID, nCounts(2) As Integer
 
 OnError GoTo ErrorOccured
 
@@ -543,23 +1119,23 @@ OnError GoTo ErrorOccured
 		Exit Sub
 	End If
 
-	msTabBoundary = TABGetNameFromTabFile(msFileBoundary)
+	msTabBoundary = TABGetNameFromTabFile(DDCGetBoundaryFile())
 	If msTabBoundary = "" Then
-		If FileExists(msFileBoundary) Then
-			Open Table msFileBoundary Interactive
+		If FileExists(DDCGetBoundaryFile()) Then
+			Open Table DDCGetBoundaryFile() Interactive
 		End If
-		msTabBoundary = TABGetNameFromTabFile(msFileBoundary)
+		msTabBoundary = TABGetNameFromTabFile(DDCGetBoundaryFile())
 		If msTabBoundary = "" Then
 			Exit Sub
 		End If
 	End If
 
-	msTabOrigin2Dest = TABGetNameFromTabFile(msFileOrigin2Dest)
+	msTabOrigin2Dest = TABGetNameFromTabFile(DDCGetOrigin2DestFile())
 	If msTabOrigin2Dest = "" Then
-		If FileExists(msFileOrigin2Dest) Then
-			Open Table msFileOrigin2Dest Interactive
+		If FileExists(DDCGetOrigin2DestFile()) Then
+			Open Table DDCGetOrigin2DestFile() Interactive
 		End If
-		msTabOrigin2Dest = TABGetNameFromTabFile(msFileOrigin2Dest)
+		msTabOrigin2Dest = TABGetNameFromTabFile(DDCGetOrigin2DestFile())
 		If msTabOrigin2Dest = "" Then
 			Exit Sub
 		End If
@@ -571,17 +1147,6 @@ OnError GoTo ErrorOccured
 
 	oPoint = CreatePoint(fX, fY)
 
-	Select *
-		From msTabBoundary
-		Where oPoint Within OBJ
-		Into __currDD NoSelect Hide
-
-	If TableInfo(__currDD, TAB_INFO_NROWS) = 0 Then
-		Call RBNNotificationShow(PRGIGetApplicationName(), "No Dynamic Demographic Polygon found at that location!", Notify_Error, 2500)
-		Close Table __currDD
-		Exit Sub
-	End If
-
 	Call TABClose(sTo & "_DD")
 	Call TABClose(sFrom & "s_DD")
 	Call TABClose(sFrom & "s_Home_DD")
@@ -590,51 +1155,92 @@ OnError GoTo ErrorOccured
 	Call TABClose(sTo & "_2_" & sFrom & "s_Home_DD")
 	Call TABClose(sTo & "_2_" & sFrom & "s_WORK_DD")
 
-	Fetch First From __currDD
-	sAreaID	= __currDD.Area_ID
-	oFrom	= __currDD.OBJ
-	Call DebugPrint(FormatNumber$(TableInfo(__currDD, TAB_INFO_NROWS)) & " " & sFrom & "(s) found. Using " & sAreaID)
+'	Select *
+'		From msTabBoundary
+'		Where oPoint Within OBJ
+'		Into __currDD NoSelect Hide
+'
+'	If TableInfo(__currDD, TAB_INFO_NROWS) = 0 Then
+'		Call RBNNotificationShow(PRGIGetApplicationName(), "No Dynamic Demographic Polygon found at that location!", Notify_Error, 2500)
+'		Close Table __currDD
+'		Exit Sub
+'	End If
+'
+'	Fetch First From __currDD
+'	sAreaID	= __currDD.Area_ID
+'	oFrom	= __currDD.OBJ
+'	Call DebugPrint(FormatNumber$(TableInfo(__currDD, TAB_INFO_NROWS)) & " " & sFrom & "(s) found. Using " & sAreaID)
+'
+'	Close Table __currDD
+'
+'	sQueryName	= sFrom & "_DD"
+'	Select *
+'		From msTabBoundary
+'		Where Area_ID = sAreaID
+'		And OBJ
+'		Into sQueryName NoSelect
+'	Call DebugPrint(FormatNumber$(TableInfo(sQueryName, TAB_INFO_NROWS)) & " " & sFrom & "(s) found using " & sAreaID)
+'
+'	If TableInfo(sQueryName, TAB_INFO_NROWS) = 0 Then
+'		Close Table sQueryName
+'		Call RBNNotificationShow(PRGIGetApplicationName(), "No Dynamic Demographic Polygons found for Area_ID '" & sAreaID & "'!", Notify_Error, 2500)
+'		Exit Sub
+'	End If
 
-	Close Table __currDD
-
-	Select *
-		From msTabBoundary
-		Where Area_ID = sAreaID
-		And OBJ
-		Into sFrom & "_DD" NoSelect
-	Call DebugPrint(FormatNumber$(TableInfo(sFrom & "_DD", TAB_INFO_NROWS)) & " " & sFrom & "(s) found using " & sAreaID)
-
-	If TableInfo(sFrom & "_DD", TAB_INFO_NROWS) = 0 Then
-		Close Table sFrom & "_DD"
-		Call RBNNotificationShow(PRGIGetApplicationName(), "No Dynamic Demographic Polygons found for Area_ID '" & sAreaID & "'!", Notify_Error, 2500)
+	sQueryName	= sFrom & "_DD"
+	sAreaID		= MENUCreateFromQueryTable(oPoint, msTabBoundary, "Area_ID", sQueryName)
+	If sAreaID = "" Then
 		Exit Sub
 	End If
+	Call DebugPrint(FormatNumber$(TableInfo(sQueryName, TAB_INFO_NROWS)) & " " & sFrom & "(s) found using " & sAreaID)
 
-	Add Map
-		Window nMID
-		Layer sFrom & "_DD"
-	Set Map
-		Window nMID
-		Layer sFrom & "_DD"
-			Display Global
-			Global Global Pen MENUGetLayerPen(sFrom) Global Brush MENUGetLayerBrush(sFrom)
-			Alpha 127
-	Call DebugPrint("1 layer has been configured.")
+	Fetch First From sQueryName
+	aOBJ		= sQueryName & ".OBJ"
+	oFrom	= aOBJ
 
-	If mbSplitByHomeWork Then
+	Call MENUAddFromQueryTablesToMap(nMID, sQueryName, sFrom)
+	Redim mtarrResults(1)
+	mtarrResults(1).sQueryTable 		= sQueryName
+	mtarrResults(1).sToFromType		= sFrom
+	mtarrResults(1).sOriginAreaType	= ""
+
+'	Add Map
+'		Window nMID
+'		Layer sQueryName
+'	If Not DCCApplyLayerSettings(nMID, sQueryName) Then
+'		Set Map
+'			Window nMID
+'			Layer sQueryName
+'				Display Global Global Pen MENUGetLayerPen(sFrom) Global Brush MENUGetLayerBrush(sFrom)
+'				Alpha 127
+'		Call DebugPrint("Layer '" & sQueryName & "' has been manually configured.")
+'	End If
+
+	If DDCSplitByWorkerHome() Then
 		For i = 1 To 2
 			sOriginAreaType	= IIf(i = 1, "Home", "Work")
 			sQueryName		= sTo & "s_" & sOriginAreaType & "_DD"
 
+			nCounts(i)	= MENUCreateToQueryTables( oFrom, sAreaID, sOriginAreaType
+								, msTabBoundary, "Area_ID"
+								, msTabOrigin2Dest, "Dest_Area_ID", "Origin_Area_ID", "Origin_Area_Type"
+								, sQueryName, sFrom & "_2_" & sQueryName)
+
 			'New Query using Join
-			Select *
-				From msTabBoundary As "b", msTabOrigin2Dest As "od"
-				Where b.Area_ID = od.Dest_Area_ID
-				And od.Origin_Area_Type = sOriginAreaType
-				And od.Origin_Area_ID = sAreaID
-				And OBJ
-				Into sQueryName NoSelect
-			nCounts(i)	= TableInfo(sQueryName, TAB_INFO_NROWS)
+			Call DEBUGPrint("Select * From " & msTabBoundary & " As " & Chr$(34) & "b" & Chr$(34)
+					& ", " & msTabOrigin2Dest & " As " & Chr$(34) & "od" & Chr$(34)
+					& " Where b.Area_ID = od.Dest_Area_ID"
+					& " And od.Origin_Area_Type = " & Chr$(34) & sOriginAreaType & Chr$(34)
+					& " And od.Origin_Area_ID = " & Chr$(34) & sAreaID & Chr$(34)
+					& " And OBJ Into " & sQueryName & " NoSelect")
+'			Select *
+'				From msTabBoundary As "b", msTabOrigin2Dest As "od"
+'				Where b.Area_ID = od.Dest_Area_ID
+'				And od.Origin_Area_Type = sOriginAreaType
+'				And od.Origin_Area_ID = sAreaID
+'				And OBJ
+'				Into sQueryName NoSelect
+'			nCounts(i)	= TableInfo(sQueryName, TAB_INFO_NROWS)
 			Call DebugPrint(FormatNumber$(nCounts(i)) & " " & sTo & "(s) found for '" & sOriginAreaType & "'.")
 
 			If nCounts(i) = 0 Then
@@ -642,35 +1248,50 @@ OnError GoTo ErrorOccured
 				Call TABClose(sQueryName)
 				Exit Sub
 			Else
-				Select q.*, ConnectObjects(Centroid(oFrom), Centroid(q.OBJ), TRUE) Object
-					From sQueryName As "q"
-					Into sFrom & "_2_" & sQueryName NoSelect
-				Call DebugPrint(FormatNumber$(TableInfo(sFrom & "_2_" & sQueryName, TAB_INFO_NROWS)) & " " & sFrom & " to " & sTo & "(s) calculated for '" & sOriginAreaType & "'.")
+'				Select q.*, ConnectObjects(Centroid(oFrom), Centroid(q.OBJ), TRUE) Object
+'					From sQueryName As "q"
+'					Into sFrom & "_2_" & sQueryName NoSelect
+'				Call DebugPrint(FormatNumber$(TableInfo(sFrom & "_2_" & sQueryName, TAB_INFO_NROWS)) & " " & sFrom & " to " & sTo & "(s) calculated for '" & sOriginAreaType & "'.")
 
-				nGroupLayerID = GLYRGetGroupLayerID(nMID, 0, sOriginAreaType, TRUE)
-				If nGroupLayerID < 0 Then
-					Call DebugPrint("Creating NEW group layer '" & sOriginAreaType & "'")
-					Add Map
-						Window nMID
-						GroupLayer (sOriginAreaType, sFrom & "_2_" & sQueryName, sQueryName) Position 2
-				Else
-					Call DebugPrint("Using EXISTING group layer '" & sOriginAreaType & "'")
-					Add Map
-						Window nMID
-						Layer sFrom & "_2_" & sQueryName, sQueryName
-						DestGrouplayer sOriginAreaType
-				End If
+				Call MENUAddToQueryTablesToMap(nMID, sQueryName, sFrom & "_2_" & sQueryName, sTo & "s", sOriginAreaType)
+				nItem	= 2 * i
+				Redim mtarrResults(nItem + 1)
+				mtarrResults(nItem).sQueryTable 		= sQueryName
+				mtarrResults(nItem).sToFromType		= sTo & "s"
+				mtarrResults(nItem).sOriginAreaType	= sOriginAreaType
+				mtarrResults(nItem + 1).sQueryTable 	= sFrom & "_2_" & sQueryName
+				mtarrResults(nItem + 1).sToFromType	= sTo & "s"
+				mtarrResults(nItem + 1).sOriginAreaType	= sOriginAreaType
 
-				Set Map
-					Window nMID
-					Layer sFrom & "_2_" & sQueryName
-						Display Global
-						Global Line (3,3,8388608)
-					Layer sQueryName
-						Display Global
-						Global Pen MENUGetLayerPen(sTo & "s") Global Brush MENUGetLayerBrush(sTo & "s")
-						Alpha 127
-				Call DebugPrint("2 layers have been configured.")
+'				nGroupLayerID = GLYRGetGroupLayerID(nMID, 0, sOriginAreaType, TRUE)
+'				If nGroupLayerID < 0 Then
+'					Call DebugPrint("Creating NEW group layer '" & sOriginAreaType & "'")
+'					Add Map
+'						Window nMID
+'						GroupLayer (sOriginAreaType, sFrom & "_2_" & sQueryName, sQueryName) Position 2
+'				Else
+'					Call DebugPrint("Using EXISTING group layer '" & sOriginAreaType & "'")
+'					Add Map
+'						Window nMID
+'						Layer sFrom & "_2_" & sQueryName, sQueryName
+'						DestGrouplayer sOriginAreaType
+'				End If
+'
+'				If Not DCCApplyLayerSettings(nMID, sFrom & "_2_" & sQueryName) Then
+'					Set Map
+'						Window nMID
+'						Layer sFrom & "_2_" & sQueryName
+'							Display Global Global Line (3,3,8388608)
+'					Call DebugPrint("Layer '" & sFrom & "_2_" & sQueryName & "' has been manually configured.")
+'				End If
+'				If Not DCCApplyLayerSettings(nMID, sQueryName) Then
+'					Set Map
+'						Window nMID
+'						Layer sQueryName
+'							Display Global Global Pen MENUGetLayerPen(sTo & "s") Global Brush MENUGetLayerBrush(sTo & "s")
+'							Alpha 127
+'					Call DebugPrint("Layer '" & sQueryName & "' has been manually configured.")
+'				End If
 			End If
 		Next
 
@@ -678,14 +1299,19 @@ OnError GoTo ErrorOccured
 	Else
 		sQueryName		= sTo & "s_DD"
 
-		'New Query using Join
-		Select *
-			From msTabBoundary As "b", msTabOrigin2Dest As "od"
-			Where b.Area_ID = od.Dest_Area_ID
-			And od.Origin_Area_ID = sAreaID
-			And OBJ
-			Into sQueryName NoSelect
-		nCounts(1)	= TableInfo(sQueryName, TAB_INFO_NROWS)
+		nCounts(i)	= MENUCreateToQueryTables( oFrom, sAreaID, ""
+							, msTabBoundary, "Area_ID"
+							, msTabOrigin2Dest, "Dest_Area_ID", "Origin_Area_ID", ""
+							, sQueryName, sFrom & "_2_" & sQueryName)
+
+'		'New Query using Join
+'		Select *
+'			From msTabBoundary As "b", msTabOrigin2Dest As "od"
+'			Where b.Area_ID = od.Dest_Area_ID
+'			And od.Origin_Area_ID = sAreaID
+'			And OBJ
+'			Into sQueryName NoSelect
+'		nCounts(1)	= TableInfo(sQueryName, TAB_INFO_NROWS)
 		Call DebugPrint(FormatNumber$(nCounts(1)) & " " & sTo & "(s) found.")
 
 		If nCounts(1) = 0 Then
@@ -693,28 +1319,43 @@ OnError GoTo ErrorOccured
 			Call TABClose(sQueryName)
 			Exit Sub
 		Else
-			Select q.*, ConnectObjects(Centroid(oFrom), Centroid(q.OBJ), TRUE) Object
-				From sQueryName As "q"
-				Into sFrom & "_2_" & sQueryName NoSelect
-			Call DebugPrint(FormatNumber$(TableInfo(sFrom & "_2_" & sQueryName, TAB_INFO_NROWS)) & " " & sFrom & " to " & sTo & "(s) calculated.")
+'			Select q.*, ConnectObjects(Centroid(oFrom), Centroid(q.OBJ), TRUE) Object
+'				From sQueryName As "q"
+'				Into sFrom & "_2_" & sQueryName NoSelect
+'			Call DebugPrint(FormatNumber$(TableInfo(sFrom & "_2_" & sQueryName, TAB_INFO_NROWS)) & " " & sFrom & " to " & sTo & "(s) calculated.")
 
 			sZoomLayer	= sFrom & "_2_" & sQueryName
 
-			Add Map
-				Window nMID
-				Layer sFrom & "_2_" & sQueryName
-					, sQueryName
+			Call MENUAddToQueryTablesToMap(nMID, sQueryName, sFrom & "_2_" & sQueryName, sTo & "s", "")
+			nItem	= 2
+			Redim mtarrResults(nItem + 1)
+			mtarrResults(nItem).sQueryTable 		= sQueryName
+			mtarrResults(nItem).sToFromType		= sTo & "s"
+			mtarrResults(nItem).sOriginAreaType	= ""
+			mtarrResults(nItem + 1).sQueryTable 	= sFrom & "_2_" & sQueryName
+			mtarrResults(nItem + 1).sToFromType	= sTo & "s"
+			mtarrResults(nItem + 1).sOriginAreaType	= ""
 
-			Set Map
-				Window nMID
-				Layer sFrom & "_2_" & sQueryName
-					Display Global
-					Global Line (3,3,8388608)
-				Layer sQueryName
-					Display Global
-					Global Global Pen MENUGetLayerPen(sTo & "s") Global Brush MENUGetLayerBrush(sTo & "s")
-					Alpha 127
-			Call DebugPrint("2 layers have been configured.")
+'			Add Map
+'				Window nMID
+'				Layer sFrom & "_2_" & sQueryName
+'					, sQueryName
+'
+'			If Not DCCApplyLayerSettings(nMID, sFrom & "_2_" & sQueryName) Then
+'				Set Map
+'					Window nMID
+'					Layer sFrom & "_2_" & sQueryName
+'						Display Global Global Line (3,3,8388608)
+'				Call DebugPrint("Layer '" & sFrom & "_2_" & sQueryName & "' has been manually configured.")
+'			End If
+'			If Not DCCApplyLayerSettings(nMID, sQueryName) Then
+'				Set Map
+'					Window nMID
+'					Layer sQueryName
+'						Display Global Global Pen MENUGetLayerPen(sTo & "s") Global Brush MENUGetLayerBrush(sTo & "s")
+'						Alpha 127
+'				Call DebugPrint("Layer '" & sQueryName & "' has been manually configured.")
+'			End If
 		End If
 	End If
 
@@ -724,7 +1365,7 @@ OnError GoTo ErrorOccured
 		Window nMID
 		Zoom Entire Layer sZoomLayer
 
-	If mbSplitByHomeWork Then
+	If DDCSplitByWorkerHome() Then
 		Call RBNNotificationShow(PRGIGetApplicationName(), sFrom & " " & sAreaID & " has "
 					& FormatNumber$(nCounts(1)) & " Home " & sTo & "s and "
 					& FormatNumber$(nCounts(2)) & " Work " & sTo & "s"

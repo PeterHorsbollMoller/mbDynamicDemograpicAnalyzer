@@ -1,0 +1,23 @@
+﻿Declare Function DDConfigDlg() As Logical
+
+Declare Sub DDCSetSplitByWorkerHome(ByVal bValue As Logical)
+Declare Function DDCSplitByWorkerHome() As Logical
+Declare Sub DDCSetBoundaryFile(ByVal sFile As String)
+Declare Function DDCGetBoundaryFile() As String
+Declare Sub DDCSetOrigin2DestFile(ByVal sFile As String)
+Declare Function DDCGetOrigin2DestFile() As String
+
+Declare Sub DCCAddLayerSettings(	  ByVal sName As String
+'							, ByVal sType As String
+							, tLyr As T_LAYER_SETTINGS
+							, tLbl As T_LABEL_SETTINGS)
+Declare Function DCCGetLayerSettings(	  ByVal sName As String
+'								, ByVal sType As String
+								, tLyr As T_LAYER_SETTINGS
+								, tLbl As T_LABEL_SETTINGS
+								) As Logical
+Declare Function DCCApplyLayerSettings(	  ByVal nMID As Integer
+								, ByVal sName As String
+'								, ByVal sType As String
+								) As Logical
+
