@@ -18,6 +18,7 @@ Include "Library\DEBUGLib.def"
 Include "Library\FILELib.def"
 Include "Library\ERRORLib.def"
 Include "Library\LAYERLib.def"
+Include "Library\RIBBONLib.def"
 Include "Library\TABLELib.def"
 Include "Library\Types\T_LAYER_SETTINGS.def"
 Include "Library\Types\T_LABEL_SETTINGS.def"
@@ -26,11 +27,15 @@ Include "DDConfigDlg.def"
 
 Declare Sub DDCHandler_OnLoad
 Declare Sub DDCHandler_OKClicked
+Declare Sub DDCHandler_LoadDataTypes
 Declare Sub DDCHandler_UpdateLayerClicked
 Declare Sub DDCHandler_UpdateLayer(ByVal nItem As Integer)
 Declare Sub DDCHandler_SelectBoundaryFile
 Declare Sub DDCHandler_SelectOrigin2DestFile
+Declare Sub DDCHandler_SelectMainFolder
 Declare Sub DDCHandler_LayerClicked
+Declare Sub DDCHandler_DataTypeClicked
+Declare Sub DDCHandler_DaypartClicked
 
 Define	CTRL_CHK_SPLIT_WORK_HOME		100
 Define	CTRL_LST_LAYERS			200
@@ -40,15 +45,46 @@ Define	CTRL_TXT_BOUNDARY			300
 Define	CTRL_CMD_SELECT_BOUNDARY		310
 Define	CTRL_TXT_ORIG_2_DEST		400
 Define	CTRL_CMD_SELECT_ORIG_2_DEST	410
+Define	CTRL_TXT_MAIN_FOLDER		500
+Define	CTRL_CMD_SELECT_MAIN_FOLDER	510
+Define	CTRL_LST_DATATYPES			600
+Define	CTRL_LST_DAYPART			700
+
 
 Dim	mbSplitByWorkerHome As Logical,
-	msBoundaryFile, msOrigin2DestinationFile As String,
+	marrSubFolders(), marrDataTypeDescriptions(), marrDataTypeFolders() As String,
+	marrDatatypes() As Integer,
+	marrDayparts() As String,
+	mnDayPart, mnDataType As Integer,
+	msDDMainDataFolder, msBoundaryFile, msOrigin2DestinationFile As String,
 	marrLayerNames(), marrOpenLayerNames() As String,
 '	marrLayerTypes() As String,
 	marrOpenLayerIDs(), arrOpenLayersIndex() As Integer,
 	marrLayerUpdate() As Logical,
 	marrLayerSettings() As T_LAYER_SETTINGS,
 	marrLabelSettings() As T_LABEL_SETTINGS
+
+'Tables:
+'..\age_gender\pivoted\*age_gender_aft_*.tab
+'..\age_gender\pivoted\*age_gender_eve_*.tab
+'..\age_gender\pivoted\*age_gender_mor_*.tab
+'..\age_gender\pivoted\*age_gender_ngt_*.tab
+'..\purchasing_power\pivoted\*purchasing_power_household_aft_*.tab
+'..\purchasing_power\pivoted\*purchasing_power_household_eve_*.tab
+'..\purchasing_power\pivoted\*purchasing_power_household_mor_*.tab
+'..\purchasing_power\pivoted\*purchasing_power_household_ngt_*.tab
+'..\purchasing_power\pivoted\*purchasing_power_inh_aft_*.tab
+'..\purchasing_power\pivoted\*purchasing_power_inh_eve_*.tab
+'..\purchasing_power\pivoted\*purchasing_power_inh_mor_*.tab
+'..\purchasing_power\pivoted\*purchasing_power_inh_ngt_*.tab
+
+'*Structured differently
+'..\consumer_styles\pivoted\*consumer_styles_*.tab
+
+'..\origin_destination\pivoted\*origin_destination_aft_*.tab
+'..\origin_destination\pivoted\*origin_destination_eve_*.tab
+'..\origin_destination\pivoted\*origin_destination_mor_*.tab
+'..\origin_destination\pivoted\*origin_destination_ngt_*.tab
 
 '**********************************************************************************************''
 'Created by Peter Horsbøll Møller, Precisely
@@ -59,6 +95,7 @@ Dim	mbSplitByWorkerHome As Logical,
 '**********************************************************************************************''
 Function DDConfigDlg() As Logical
 
+Dim	i As Integer
 OnError GoTo ErrorOccured
 
 DDConfigDlg = FALSE
@@ -68,6 +105,11 @@ DDConfigDlg = FALSE
 	ReDim marrOpenLayerIDs(0)
 	ReDim marrLayerUpdate(0)
 
+	ReDim marrDayparts(0)
+	For i = 1 To DD_NUM_DAYPARTS
+		Call ARRAYAddValueString(marrDayparts(), DDCGetDayDescription(i))
+	Next
+
 	Dialog
 		Title "Configurarion"
 		Calling DDCHandler_OnLoad
@@ -75,51 +117,89 @@ DDConfigDlg = FALSE
 		'**************************************************************************************
 		Control StaticText
 			Position 5,5
-			Title "Boundary MapInfo Tab File"
-		Control EditText		ID CTRL_TXT_BOUNDARY
-			Position 5,15		Width 200
-			Value FILEGetRelativePath(ApplicationDirectory$(), DDCGetBoundaryFile())
-		Control Button
-			Position 205,15	Width 15	Height 13
+			Title "Main Dynamic Demographic Data Folder"
+		Control EditText		ID CTRL_TXT_MAIN_FOLDER
+			Position 5,15		Width 280
+			Value FILEGetRelativePath(ApplicationDirectory$(), DDCGetDDMainDataFolder())
+		Control Button			ID CTRL_CMD_SELECT_MAIN_FOLDER
+			Position 285,15	Width 15	Height 13
 			Title "..."
-			Calling DDCHandler_SelectBoundaryFile
+			Calling DDCHandler_SelectMainFolder
 
 		'**************************************************************************************
 		Control StaticText
 			Position 5,30
+			Title "Data Types"
+		Control ListBox		ID CTRL_LST_DATATYPES
+			Position 5,40		Width 140	Height 40
+			Calling DDCHandler_DataTypeClicked
+
+		'**************************************************************************************
+		Control StaticText
+			Position 150,30
+			Title "Time of Day"
+		Control ListBox		ID CTRL_LST_DAYPART
+			Position 150,40	Width 150	Height 40
+			Calling DDCHandler_DaypartClicked
+			Title From Variable marrDayparts
+			Value DDCGetDayPart()
+
+		'**************************************************************************************
+		Control StaticText
+			Position 5,90
+			Title "Boundary MapInfo Tab File"
+'			Hide
+		Control EditText		ID CTRL_TXT_BOUNDARY
+			Position 5,100		Width 295
+			Value FILEGetRelativePath(DDCGetDDMainDataFolder(), DDCGetBoundaryFile())
+			Disable
+'			Hide
+'		Control Button			ID CTRL_CMD_SELECT_BOUNDARY
+'			Position 205,15	Width 15	Height 13
+'			Title "..."
+'			Calling DDCHandler_SelectBoundaryFile
+'			Hide
+'
+'		'**************************************************************************************
+		Control StaticText
+			Position 5,115
 			Title "Origin to Destination MapInfo Tab File"
+'			Hide
 		Control EditText		ID CTRL_TXT_ORIG_2_DEST
-			Position 5,40		Width 200
-			Value FILEGetRelativePath(ApplicationDirectory$(), DDCGetOrigin2DestFile())
-		Control Button
-			Position 205,40	Width 15	Height 13
-			Title "..."
-			Calling DDCHandler_SelectOrigin2DestFile
+			Position 5,125		Width 295
+			Value FILEGetRelativePath(DDCGetDDMainDataFolder(), DDCGetOrigin2DestFile())
+			Disable
+'			Hide
+'		Control Button			ID CTRL_CMD_SELECT_ORIG_2_DEST
+'			Position 205,40	Width 15	Height 13
+'			Title "..."
+'			Calling DDCHandler_SelectOrigin2DestFile
+'			Hide
 
 		'**************************************************************************************
 		Control CheckBox		ID CTRL_CHK_SPLIT_WORK_HOME
-			Position 5,60
+			Position 5,145
 			Title "Split result by Worker/Home"
 			Value DDCSplitByWorkerHome()
 
 		'**************************************************************************************
 		Control StaticText		ID CTRL_TXT_LAYERS
-			Position 5,75
+			Position 5,160
 			Title "Update Layer Settings"
 		Control ListBox		ID CTRL_LST_LAYERS
-			Position 5,85		Width 215	Height 70
+			Position 5,170		Width 295	Height 70
 			Calling DDCHandler_LayerClicked
 		Control Button			ID CTRL_CMD_UPDATE_LAYER
-			Position 5,155		Width 215
+			Position 5,240		Width 295
 			Title "Read Styles from Layer"
 			Calling DDCHandler_UpdateLayerClicked
 
 		'**************************************************************************************
 		Control OKButton
-			Position 135,175	Width 40
+			Position 215,260	Width 40
 			Calling DDCHandler_OKClicked
 		Control CancelButton
-			Position 180,175	Width 40
+			Position 260,260	Width 40
 
 	If not CommandInfo(CMD_INFO_DLG_OK) Then
 		Exit Function
@@ -151,29 +231,31 @@ OnError GoTo ErrorOccured
 
 	nMID = FrontWindow()
 	If nMID <> 0 Then
-		For nLayer = 1 To MapperInfo(nMID, MAPPER_INFO_LAYERS)
-			sLayerName	= LayerInfo(nMID, nLayer, LAYER_INFO_NAME)
-'			Call DEBUGPrint("Looking for '" & sLayerName & "'")
+		If WindowInfo(nMID, WIN_INFO_TYPE) = WIN_MAPPER Then
+			For nLayer = 1 To MapperInfo(nMID, MAPPER_INFO_LAYERS)
+				sLayerName	= LayerInfo(nMID, nLayer, LAYER_INFO_NAME)
+	'			Call DEBUGPrint("Looking for '" & sLayerName & "'")
 
-			nFound = ARRAYFindValueString(marrLayerNames(), sLayerName)
-			If nFound > 0 Then
-				nCount = Ubound(marrOpenLayerNames) + 1
+				nFound = ARRAYFindValueString(marrLayerNames(), sLayerName)
+				If nFound > 0 Then
+					nCount = Ubound(marrOpenLayerNames) + 1
 
-				ReDim arrOpenLayersIndex(nCount)
-				arrOpenLayersIndex(nCount)	= nFound
-				ReDim marrOpenLayerNames(nCount)
-				marrOpenLayerNames(nCount)	= sLayerName '& "(" & marrLayerTypes(nFound) & ")"
-				ReDim marrOpenLayerIDs(nCount)
-				marrOpenLayerIDs(nCount)		= nLayer
-				ReDim marrLayerUpdate(nCount)
-				marrLayerUpdate(nCount)		= FALSE
-			End If
-		Next
+					ReDim arrOpenLayersIndex(nCount)
+					arrOpenLayersIndex(nCount)	= nFound
+					ReDim marrOpenLayerNames(nCount)
+					marrOpenLayerNames(nCount)	= sLayerName '& "(" & marrLayerTypes(nFound) & ")"
+					ReDim marrOpenLayerIDs(nCount)
+					marrOpenLayerIDs(nCount)		= nLayer
+					ReDim marrLayerUpdate(nCount)
+					marrLayerUpdate(nCount)		= FALSE
+				End If
+			Next
+		End If
 	End If
 
 	If Ubound(arrOpenLayersIndex) = 0 Then
 		ReDim marrOpenLayerNames(1)
-		marrOpenLayerNames(1) = "Run the Analyzer to change layer settings!"
+		marrOpenLayerNames(1) = "Run the Analyzer to create layers to read settings from!"
 		Alter Control CTRL_TXT_LAYERS			Disable
 		Alter Control CTRL_LST_LAYERS			Disable
 		Alter Control CTRL_CMD_UPDATE_LAYER	Disable
@@ -184,6 +266,8 @@ OnError GoTo ErrorOccured
 	End If
 
 	Alter Control CTRL_LST_LAYERS Title From Variable marrOpenLayerNames
+
+	Call DDCHandler_LoadDataTypes
 
 	Exit Sub
 '-------------------------
@@ -200,36 +284,65 @@ End Sub
 '**********************************************************************************************''
 Sub DDCHandler_OKClicked
 
-Dim	nMID, nLayer As Integer,
-	sFile As String
+Dim	nMID, nLayer, nItemDatatype, nDatatype, nDaypart As Integer,
+	sPath, sFile As String
 
 OnError GoTo ErrorOccured
 
+	'**Main Data Folder
+	sPath = ReadControlValue(CTRL_TXT_MAIN_FOLDER)
+	If sPath = "" Then
+		Note "Please specify a dynamic demographic main data folder!"
+		Alter Control CTRL_TXT_MAIN_FOLDER Active
+	End If
+	sPath = FILEGetAbsolutePath(ApplicationDirectory$(), sPath)
+	If Not FileExists(sPath) Then
+		Note "Please specify an existing folder as the dynamic demographic data folder!"
+		Alter Control CTRL_TXT_MAIN_FOLDER Active
+	End If
+	Call DDCSetDDMainDataFolder(sPath)
+
+	nItemDatatype	= ReadControlValue(CTRL_LST_DATATYPES)
+	nDatatype		= marrDatatypes(nItemDatatype)
+	nDaypart		= ReadControlValue(CTRL_LST_DAYPART)
+
+	Call DDCSetDataType(nDatatype)
+	Call DDCSetDayPart(nDaypart)
+
+	Call DEBUGPrint("You selected datatype " & nDatatype & " referring to " & DDCGetDataTypeFolderPath(sPath, TRUE, nDatatype))
+	Call DEBUGPrint("You selected daypart " & nDaypart & " - " & DDCGetDayDescription(nDaypart))
+
+	Call DDCSetBoundaryFile(DDCGetBoundaryFileName(sPath, TRUE, nDatatype, nDaypart))
+	Print "Boundary File: " & DDCGetBoundaryFile()
+
+	Call DDCSetOrigin2DestFile(DDCGetOrigin2DestFileName(sPath, TRUE, DD_DATATYPE_ORIG_2_DESTINATION, nDaypart))
+	Print "Orig2Destination File: " & DDCGetOrigin2DestFile()
+
 	'**Boundary File
-	sFile = ReadControlValue(CTRL_TXT_BOUNDARY)
-	If sFile = "" Then
-		Note "Please specify a dynamic demographic boundary table!"
-		Alter Control CTRL_TXT_BOUNDARY Active
-	End If
-	sFile = FILEGetAbsolutePath(ApplicationDirectory$(), sFile)
-	If Not FileExists(sFile) Then
-		Note "Please specify an existing dynamic demographic boundary file!"
-		Alter Control CTRL_TXT_BOUNDARY Active
-	End If
-	Call DDCSetBoundaryFile(sFile)
+'	sFile = ReadControlValue(CTRL_TXT_BOUNDARY)
+'	If sFile = "" Then
+'		Note "Please specify a dynamic demographic boundary table!"
+'		Alter Control CTRL_TXT_BOUNDARY Active
+'	End If
+'	sFile = FILEGetAbsolutePath(ApplicationDirectory$(), sFile)
+'	If Not FileExists(sFile) Then
+'		Note "Please specify an existing dynamic demographic boundary file!"
+'		Alter Control CTRL_TXT_BOUNDARY Active
+'	End If
+'	Call DDCSetBoundaryFile(sFile)
 
 	'**Origin to Destination File
-	sFile = ReadControlValue(CTRL_TXT_ORIG_2_DEST)
-	If sFile = "" Then
-		Note "Please specify a dynamic demographic origin to destination table!"
-		Alter Control CTRL_TXT_ORIG_2_DEST Active
-	End If
-	sFile = FILEGetAbsolutePath(ApplicationDirectory$(), sFile)
-	If Not FileExists(sFile) Then
-		Note "Please specify an existing dynamic demographic origin to destination file!"
-		Alter Control CTRL_TXT_ORIG_2_DEST Active
-	End If
-	Call DDCSetOrigin2DestFile(sFile)
+'	sFile = ReadControlValue(CTRL_TXT_ORIG_2_DEST)
+'	If sFile = "" Then
+'		Note "Please specify a dynamic demographic origin to destination table!"
+'		Alter Control CTRL_TXT_ORIG_2_DEST Active
+'	End If
+'	sFile = FILEGetAbsolutePath(ApplicationDirectory$(), sFile)
+'	If Not FileExists(sFile) Then
+'		Note "Please specify an existing dynamic demographic origin to destination file!"
+'		Alter Control CTRL_TXT_ORIG_2_DEST Active
+'	End If
+'	Call DDCSetOrigin2DestFile(sFile)
 
 	'**Split by Worker/Home
 	Call DDCSetSplitByWorkerHome(ReadControlValue(CTRL_CHK_SPLIT_WORK_HOME))
@@ -250,6 +363,128 @@ OnError GoTo ErrorOccured
 '-------------------------
 ErrorOccured:
 	Call ERRCreate(Err(), Error$(), "DDCHandler_OKClicked")
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub DDCHandler_LoadDataTypes
+
+Dim	nDataType, nFolder, nNumFolders As Integer,
+	sPath As String
+
+OnError GoTo ErrorOccured
+
+	sPath	= ReadControlValue(CTRL_TXT_MAIN_FOLDER)
+	sPath	= FILEGetAbsolutePath(ApplicationDirectory$(), sPath)
+
+	nNumFolders = FILEFindFoldersInFolder(sPath, "*")
+	If nNumFolders = 0 Then
+		Note "Please select a folder with at least one sub folder!"
+		Exit Sub
+	End If
+	ReDim marrSubFolders(0)
+	For nFolder = 1 To nNumFolders
+		Call DEBUGPrint(nFolder & ". folder: " & FILEGetFindFoldersFolderName(nFolder))
+		Call ARRAYAddValueString(marrSubFolders, FILEGetFindFoldersFolderName(nFolder))
+	Next
+
+'	Note "Folders: " & Chr$(10) & ARRAYToSeparatedTextString(marrSubFolders(), Chr$(10))
+
+	ReDim marrDataTypeDescriptions(0)
+	ReDim marrDataTypeFolders(0)
+	ReDim marrDatatypes(0)
+
+	For nDataType = 1 To DD_NUM_DATATYPES
+		Call DEBUGPrint("Looking for: " & DDCGetDataTypeFolderName(nDataType))
+		For nFolder = 1 To Ubound(marrSubFolders)
+			If InStr(1, marrSubFolders(nFolder), DDCGetDataTypeFolderName(nDataType)) Then
+				Call DEBUGPrint("Found: " & DDCGetDataTypeFolderName(nDataType))
+				Call ARRAYAddValueString(marrDataTypeDescriptions(), DDCGetDataTypeDescription(nDataType))
+				Call ARRAYAddValueString(marrDataTypeFolders(), marrSubFolders(nFolder))
+				Call ARRAYAddValueInteger(marrDatatypes(), nDataType)
+				Exit For
+			End If
+		Next
+	Next
+
+	Alter Control CTRL_LST_DATATYPES	Title From Variable marrDataTypeDescriptions
+	Alter Control CTRL_LST_DATATYPES	Value DDCGetDataType()
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDCHandler_LoadDataTypes")
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub DDCHandler_DataTypeClicked
+
+Dim	nItemDatatype, nDaypart, nDatatype As Integer,
+	sPath As String
+
+OnError GoTo ErrorOccured
+
+	nItemDatatype	= ReadControlValue(CTRL_LST_DATATYPES)
+	nDatatype		= marrDatatypes(nItemDatatype)
+	nDaypart		= ReadControlValue(CTRL_LST_DAYPART)
+	sPath		= ReadControlValue(CTRL_TXT_MAIN_FOLDER)
+	sPath		= FILEGetAbsolutePath(ApplicationDirectory$(), sPath)
+
+	Call DEBUGPrint("You click datatype " & nDatatype & " referring to " & DDCGetDataTypeFolderPath(sPath, TRUE, nDatatype))
+
+	Print "Boundary File: " & DDCGetBoundaryFileName(sPath, TRUE, nDatatype, nDaypart)
+
+	Alter Control CTRL_TXT_BOUNDARY	Value FILEGetRelativePath(DDCGetDDMainDataFolder(), DDCGetBoundaryFileName(sPath, TRUE, nDatatype, nDaypart))
+	Alter Control CTRL_TXT_ORIG_2_DEST	Value FILEGetRelativePath(DDCGetDDMainDataFolder(), DDCGetOrigin2DestFileName(sPath, TRUE, DD_DATATYPE_ORIG_2_DESTINATION, nDaypart))
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDCHandler_DataTypeClicked")
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub DDCHandler_DaypartClicked
+
+Dim	nItemDatatype, nDatatype, nDaypart As Integer,
+	sPath As String
+
+OnError GoTo ErrorOccured
+
+	nItemDatatype	= ReadControlValue(CTRL_LST_DATATYPES)
+	nDatatype		= marrDatatypes(nItemDatatype)
+	nDaypart		= ReadControlValue(CTRL_LST_DAYPART)
+	sPath		= ReadControlValue(CTRL_TXT_MAIN_FOLDER)
+	sPath		= FILEGetAbsolutePath(ApplicationDirectory$(), sPath)
+
+	Call DEBUGPrint("You click daypart " & nDaypart & " " & DDCGetDayDescription(nDaypart))
+
+	Print "Boundary File: " & DDCGetBoundaryFileName(sPath, TRUE, nDatatype, nDaypart)
+
+	Alter Control CTRL_TXT_BOUNDARY	Value FILEGetRelativePath(DDCGetDDMainDataFolder(), DDCGetBoundaryFileName(sPath, TRUE, nDatatype, nDaypart))
+	Alter Control CTRL_TXT_ORIG_2_DEST	Value FILEGetRelativePath(DDCGetDDMainDataFolder(), DDCGetOrigin2DestFileName(sPath, TRUE, DD_DATATYPE_ORIG_2_DESTINATION, nDaypart))
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDCHandler_DaypartClicked")
 	Call ERRShow()
 
 End Sub
@@ -350,7 +585,7 @@ Dim	sFile As String
 
 OnError GoTo ErrorOccured
 
-	sFile	= FILEGetAbsolutePath(ApplicationDirectory$(), ReadControlValue(CTRL_TXT_BOUNDARY))
+	sFile	= FILEGetRelativePath(DDCGetDDMainDataFolder(), ReadControlValue(CTRL_TXT_BOUNDARY))
 	sFile	= FileOpenDlg(PathToDirectory$(sFile), PathToFileName$(sFile), "TAB", "Select Dynamic Demographic Boundary file...")
 	If sFile = "" Then
 		Exit Sub
@@ -377,7 +612,7 @@ Dim	sFile As String
 
 OnError GoTo ErrorOccured
 
-	sFile	= FILEGetAbsolutePath(ApplicationDirectory$(), ReadControlValue(CTRL_TXT_ORIG_2_DEST))
+	sFile	= FILEGetRelativePath(DDCGetDDMainDataFolder(), ReadControlValue(CTRL_TXT_ORIG_2_DEST))
 	sFile	= FileOpenDlg(PathToDirectory$(sFile), PathToFileName$(sFile), "TAB", "Select Dynamic Demographic Origin to Destination file...")
 	If sFile = "" Then
 		Exit Sub
@@ -389,6 +624,35 @@ OnError GoTo ErrorOccured
 '-------------------------
 ErrorOccured:
 	Call ERRCreate(Err(), Error$(), "DDCHandler_SelectOrigin2DestFile")
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub DDCHandler_SelectMainFolder
+
+Dim	sPath  As String,
+	nFolder, nNumFolders As Integer
+
+OnError GoTo ErrorOccured
+
+	sPath	= FILEGetAbsolutePath(ApplicationDirectory$(), ReadControlValue(CTRL_TXT_MAIN_FOLDER))
+	sPath	= FILEBrowseForFolder("Select Dynamic Demographic Data folder...", sPath)
+	If sPath = "" Then
+		Exit Sub
+	End If
+
+	Alter Control CTRL_TXT_MAIN_FOLDER	Value FILEGetRelativePath(ApplicationDirectory$(), sPath)
+	Call DDCHandler_LoadDataTypes
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDCHandler_SelectMainFolder")
 	Call ERRShow()
 
 End Sub
@@ -448,6 +712,71 @@ ErrorOccured:
 End Function
 
 '**********************************************************************************************''
+Function DDCGetBoundaryFileName(	  ByVal sMainFolder As String
+							, ByVal bPivoted As Logical
+							, ByVal nDatatype As Integer
+							, ByVal nDaypart As Integer
+							) As String
+
+Dim	sPath, sMask, sFile As String,
+	nNumFiles As Integer
+
+OnError GoTo ErrorOccured
+
+'..\age_gender\pivoted\*age_gender_aft_*.tab
+'..\age_gender\pivoted\*age_gender_eve_*.tab
+'..\age_gender\pivoted\*age_gender_mor_*.tab
+'..\age_gender\pivoted\*age_gender_ngt_*.tab
+'..\purchasing_power\pivoted\*purchasing_power_household_aft_*.tab
+'..\purchasing_power\pivoted\*purchasing_power_household_eve_*.tab
+'..\purchasing_power\pivoted\*purchasing_power_household_mor_*.tab
+'..\purchasing_power\pivoted\*purchasing_power_household_ngt_*.tab
+'..\purchasing_power\pivoted\*purchasing_power_inh_aft_*.tab
+'..\purchasing_power\pivoted\*purchasing_power_inh_eve_*.tab
+'..\purchasing_power\pivoted\*purchasing_power_inh_mor_*.tab
+'..\purchasing_power\pivoted\*purchasing_power_inh_ngt_*.tab
+
+'*Structured differently
+'..\consumer_styles\pivoted\*consumer_styles_*.tab
+
+DDCGetBoundaryFileName = ""
+
+	sPath = FILEAddBackSlash(DDCGetDataTypeFolderPath(sMainFolder, bPivoted, nDataType))
+
+	Do Case nDataType
+		Case DD_DATATYPE_AGE_GENDER
+			sMask	= "*" & "age_gender_" & DDCGetDayShortName(nDaypart) & "_*.tab"
+		Case DD_DATATYPE_PP_HOUSEHOLD
+			sMask	= "*" & "purchasing_power_household_" & DDCGetDayShortName(nDaypart) & "_*.tab"
+		Case DD_DATATYPE_PP_INHABITANT
+			sMask	= "*" & "purchasing_power_inh_" & DDCGetDayShortName(nDaypart) & "_*.tab"
+	End Case
+
+	nNumFiles = FILEFindFilesInFolder(sPath, sMask)
+	Do Case nNumFiles
+		Case 0
+			Note "No files matching the mask '" & sMask & "' where found in this folder: " & sPath
+			Call DEBUGPrint("DDCGetBoundaryFileName: No Files found matching the mask '" & sMask & "' where found in this folder: " & sPath)
+			Exit Function
+		Case 1
+			sFile = FILEGetFindFilesFileName(1)
+			Call DEBUGPrint("DDCGetBoundaryFileName: File found: " & sFile)
+		Case Else
+			sFile = FILEGetFindFilesFileName(1)
+			Call DEBUGPrint("DDCGetBoundaryFileName: Multiple files found matching this mask '" & sMask & "'. Using the first! File found: " & sFile)
+			Call RBNNotificationShow("Dynamic Demographic Analyzer", "Multiple files found matching this mask '" & sMask & "'. Using the first!", Notify_Warning, 10000)
+	End Case
+
+	DDCGetBoundaryFileName = sFile
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDCGetBoundaryFileName")
+
+End Function
+
+
+'**********************************************************************************************''
 ' Property
 '**********************************************************************************************''
 Sub DDCSetOrigin2DestFile(ByVal sFile As String)
@@ -458,7 +787,7 @@ OnError GoTo ErrorOccured
 	Exit Sub
 '-------------------------
 ErrorOccured:
-	Call ERRCreate(Err(), Error$(), "Set____")
+	Call ERRCreate(Err(), Error$(), "DDCSetOrigin2DestFile")
 
 End Sub
 '**********************************************************************************************''
@@ -471,6 +800,278 @@ OnError GoTo ErrorOccured
 '-------------------------
 ErrorOccured:
 	Call ERRCreate(Err(), Error$(), "DDCGetOrigin2DestFile")
+
+End Function
+'**********************************************************************************************''
+Function DDCGetOrigin2DestFileName(  ByVal sMainFolder As String
+							, ByVal bPivoted As Logical
+							, ByVal nDatatype As Integer
+							, ByVal nDaypart As Integer
+							) As String
+
+Dim	sPath, sMask, sFile As String,
+	nNumFiles As Integer
+
+OnError GoTo ErrorOccured
+
+'..\origin_destination\pivoted\*origin_destination_aft_*.tab
+'..\origin_destination\pivoted\*origin_destination_eve_*.tab
+'..\origin_destination\pivoted\*origin_destination_mor_*.tab
+'..\origin_destination\pivoted\*origin_destination_ngt_*.tab
+
+DDCGetOrigin2DestFileName = ""
+
+	sPath = FILEAddBackSlash(DDCGetDataTypeFolderPath(sMainFolder, bPivoted, nDataType))
+
+	sMask	= "*" & "origin_destination_" & DDCGetDayShortName(nDaypart) & "_*.tab"
+
+	nNumFiles = FILEFindFilesInFolder(sPath, sMask)
+	Do Case nNumFiles
+		Case 0
+			Note "No files matching the mask '" & sMask & "' where found in this folder: " & sPath
+			Call DEBUGPrint("DDCGetOrigin2DestFileName: No Files found matching the mask '" & sMask & "' where found in this folder: " & sPath)
+			Exit Function
+		Case 1
+			sFile = FILEGetFindFilesFileName(1)
+			Call DEBUGPrint("DDCGetOrigin2DestFileName: File found: " & sFile)
+		Case Else
+			sFile = FILEGetFindFilesFileName(1)
+			Call DEBUGPrint("DDCGetOrigin2DestFileName: Multiple files found matching this mask '" & sMask & "'. Using the first! File found: " & sFile)
+			Call RBNNotificationShow("Dynamic Demographic Analyzer", "Multiple files found matching this mask '" & sMask & "'. Using the first!", Notify_Warning, 10000)
+	End Case
+
+	DDCGetOrigin2DestFileName = sFile
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDCGetOrigin2DestFileName")
+
+End Function
+
+'**********************************************************************************************''
+' Property
+'**********************************************************************************************''
+Sub DDCSetDDMainDataFolder(ByVal sFolder As String)
+
+OnError GoTo ErrorOccured
+
+	msDDMainDataFolder = sFolder
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDCSetDDMainDataFolder")
+
+End Sub
+'**********************************************************************************************''
+Function DDCGetDDMainDataFolder() As String
+
+OnError GoTo ErrorOccured
+
+	DDCGetDDMainDataFolder = msDDMainDataFolder
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDCGetDDMainDataFolder")
+
+End Function
+
+'**********************************************************************************************''
+' Property
+'**********************************************************************************************''
+Sub DDCSetDayPart(ByVal nDaypart As Integer)
+
+OnError GoTo ErrorOccured
+
+	mnDayPart = nDaypart
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDCSetDayPart")
+
+End Sub
+'**********************************************************************************************''
+Function DDCGetDayPart() As Integer
+
+OnError GoTo ErrorOccured
+
+	DDCGetDayPart = Maximum(mnDayPart, 1)	'Make sure to get minimum 1
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDCGetDayPart")
+
+End Function
+'**********************************************************************************************''
+Function DDCGetDayDescription(ByVal nDaypart As Integer) As String
+
+OnError GoTo ErrorOccured
+
+	Do Case nDaypart
+		Case DD_DAYPART_MORNING		'1
+			DDCGetDayDescription 	= "Morning, 06:00-11:59"
+		Case DD_DAYPART_AFTERNOON 	'2
+			DDCGetDayDescription 	= "Afternoon, 12:00-17:59"
+		Case DD_DAYPART_EVENING		'3
+			DDCGetDayDescription 	= "Evening, 18:00-20:59"
+		Case DD_DAYPART_NIGHT		'4
+			DDCGetDayDescription 	= "Night, 21:00-05:59"
+	End Case
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDCGetDayDescription")
+
+End Function
+'**********************************************************************************************''
+Function DDCGetDayShortName(ByVal nDaypart As Integer) As String
+
+OnError GoTo ErrorOccured
+
+	Do Case nDaypart
+		Case DD_DAYPART_MORNING		'1
+			DDCGetDayShortName 	= "Mor"
+		Case DD_DAYPART_AFTERNOON 	'2
+			DDCGetDayShortName 	= "Aft"
+		Case DD_DAYPART_EVENING		'3
+			DDCGetDayShortName 	= "Eve"
+		Case DD_DAYPART_NIGHT		'4
+			DDCGetDayShortName 	= "Ngt"
+	End Case
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDCGetDayShortName")
+
+End Function
+
+'**********************************************************************************************''
+' Property
+'**********************************************************************************************''
+Sub DDCSetDataType(ByVal nDataType As Integer)
+
+OnError GoTo ErrorOccured
+
+	mnDataType = nDataType
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDCSetDataType")
+
+End Sub
+'**********************************************************************************************''
+Function DDCGetDataType() As Integer
+
+OnError GoTo ErrorOccured
+
+	DDCGetDataType = Maximum(mnDataType, 1)	'Make sure to get minimum 1
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDCGetDataType")
+
+End Function
+
+'**********************************************************************************************''
+Function DDCGetDataTypeDescription(ByVal nDataType As Integer) As String
+
+OnError GoTo ErrorOccured
+
+	Do Case nDataType
+		Case DD_DATATYPE_AGE_GENDER
+			DDCGetDataTypeDescription = "Age by Gender"
+		Case DD_DATATYPE_PP_HOUSEHOLD
+			DDCGetDataTypeDescription = "Purchasing Power by Household"
+		Case DD_DATATYPE_PP_INHABITANT
+			DDCGetDataTypeDescription = "Purchasing Power by Inhabitants"
+		Case DD_DATATYPE_CS_POTENTIAL
+			DDCGetDataTypeDescription = "Potential Consumer Spend"
+		Case DD_DATATYPE_HOUSEHOLD_INCOME
+			DDCGetDataTypeDescription = "Household Income"
+		Case DD_DATATYPE_PROFESSION
+			DDCGetDataTypeDescription = "Profession"
+
+		Case DD_DATATYPE_ORIG_2_DESTINATION
+			DDCGetDataTypeDescription = "Origin to Destination"
+	End Case
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDCGetDataTypeDescription")
+
+End Function
+
+'**********************************************************************************************''
+Function DDCGetDataTypeFolderName( ByVal nDataType As Integer) As String
+
+OnError GoTo ErrorOccured
+
+	Do Case nDataType
+		Case DD_DATATYPE_AGE_GENDER			'1
+			DDCGetDataTypeFolderName = "age_gender"
+		Case DD_DATATYPE_PP_HOUSEHOLD			'2
+			DDCGetDataTypeFolderName = "purchasing_power"
+		Case DD_DATATYPE_PP_INHABITANT		'3
+			DDCGetDataTypeFolderName = "purchasing_power"
+		Case DD_DATATYPE_CS_POTENTIAL
+			DDCGetDataTypeFolderName = "consumer_spend_potential"
+		Case DD_DATATYPE_HOUSEHOLD_INCOME
+			DDCGetDataTypeFolderName = "household_income"
+		Case DD_DATATYPE_PROFESSION
+			DDCGetDataTypeFolderName = "profession"
+
+		Case DD_DATATYPE_ORIG_2_DESTINATION	'4
+			DDCGetDataTypeFolderName = "origin_destination"
+	End Case
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDCGetDataTypeFolder")
+
+End Function
+
+
+'**********************************************************************************************''
+Function DDCGetDataTypeFolderPath(	  ByVal sMainFolder As String
+							, ByVal bPivoted As Logical
+							, ByVal nDataType As Integer
+							) As String
+
+Dim	sFolder As String
+
+OnError GoTo ErrorOccured
+
+	sFolder = DDCGetDataTypeFolderName(nDataType)
+
+	If bPivoted Then
+		sFolder = FILEAddBackSlash(sFolder) & "Pivoted"
+	Else
+		sFolder = FILEAddBackSlash(sFolder) & "Unpivoted"
+	End If
+
+	DDCGetDataTypeFolderPath = FILEAddBackSlash(sMainFolder) & sFolder
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDCGetDataTypeFolderPath")
+
+End Function
+
+'**********************************************************************************************''
+Function DDCGetCurrentDataTypeFolder () As String
+
+OnError GoTo ErrorOccured
+
+	DDCGetCurrentDataTypeFolder = DDCGetDataTypeFolderPath(DDCGetDDMainDataFolder(), TRUE, DDCGetDataType())
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDCGetCurrentDataTypeFolder")
 
 End Function
 
@@ -584,20 +1185,29 @@ DCCApplyLayerSettings = FALSE
 '	Call DEBUGPrint(sCmd)
 	Run Command sCmd
 
-	sCmd	= tlbsGetSetMapStatement(nMID, nLayerID, marrLabelSettings(nLayerIndex))
+	sCmd	= tlbsGetSetMapStatementNoExpr(nMID, nLayerID, marrLabelSettings(nLayerIndex))
 	If sCmd = "" Then
 		Exit Function
 	End If
 	sCmd	= "Set Map Window " & nMID & " Layer " & nLayerID & " " & sCmd
-'	Call DEBUGPrint(sCmd)
+	Call DEBUGPrint(sCmd)
 	Run Command sCmd
 
-DCCApplyLayerSettings = TRUE
+	DCCApplyLayerSettings = TRUE
+	'**If the expression part fails, we still consider the function to work as it should
+
+	sCmd	= tlbsGetSetMapStatementOnlyExpr(nMID, nLayerID, marrLabelSettings(nLayerIndex))
+	If sCmd = "" Then
+		Exit Function
+	End If
+	sCmd	= "Set Map Window " & nMID & " Layer " & nLayerID & " " & sCmd
+	Call DEBUGPrint(sCmd)
+	Run Command sCmd
 
 	Exit Function
 '-------------------------
 ErrorOccured:
-	Call ERRCreate(Err(), Error$(), "DCCApplyLayerSettings")
-	Call ERRShow()
+	Call ERRCreate(Err(), Error$(), "DCCApplyLayerSettings: " & sCmd)
+	Call ERRPrint()
 
 End Function

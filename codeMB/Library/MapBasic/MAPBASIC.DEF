@@ -547,7 +547,7 @@ Define GRIDLINE_VERTICAL_LABEL_BOTTOM  2
 Define GRIDLINE_VERTICAL_LABEL_BOTH    3
 
 '----------------------------------------------------------------------------
-' Values Returned by LayerInfo() for LAYER_INFO_GRIDLINE_LABEL_DIRECTION. 
+' Values Returned by LayerInfo() for LAYER_INFO_GRIDLINE_LABEL_DIRECTION.
 '----------------------------------------------------------------------------
 Define GRIDLINE_LABEL_DIRECTION_PLUSMINUS 0
 Define GRIDLINE_LABEL_DIRECTION_COMPASS   1
@@ -1575,7 +1575,7 @@ Define THEME_EXPRESSION_INFO_STRING             1
 Define THEME_EXPRESSION_INFO_TYPE               2
 
 '----------------------------------------------------------------------------
-' Column type defines, returned by ThemeExpressionInfo() for 
+' Column type defines, returned by ThemeExpressionInfo() for
 ' THEME_EXPRESSION_INFO_TYPE
 '----------------------------------------------------------------------------
 Define EXPRESSION_TYPE_CHAR                     1
@@ -1606,8 +1606,8 @@ Define RANGETHEME_INFO_METHOD                   11
 Define RANGETHEME_INFO_ROUNDBY                  12
 
 '----------------------------------------------------------------------------
-' Range theme vary style by defines returned by RangeThemeInfo() for 
-' RANGETHEME_INFO_VARY_STYLE                                              
+' Range theme vary style by defines returned by RangeThemeInfo() for
+' RANGETHEME_INFO_VARY_STYLE
 '----------------------------------------------------------------------------
 Define RANGETHEME_INFO_VARY_BY_ALL              0
 Define RANGETHEME_INFO_VARY_BY_COLOR            1
@@ -1995,8 +1995,8 @@ Define   PREFERENCE_MANAGED_WORKSPACE               50
 ' Most return a SmallInt where 0 = Unchecked/Off and 1 = Checked/On, unless otherwise indicated
 '----------------------------------------------------------------------------
 Define PREF_SYSTEM_COLORDEFAULT                     0 ' 0 = Monitor, 1= Black&White, 2 = Color
-Define PREF_SYSTEM_AUTOSAVEWORKSPACE                3 ' 0=OFF, 1=ON 
-Define PREF_SYSTEM_COPYTEXTCLIPBOARD                7 ' 0=OFF, 1=ON 
+Define PREF_SYSTEM_AUTOSAVEWORKSPACE                3 ' 0=OFF, 1=ON
+Define PREF_SYSTEM_COPYTEXTCLIPBOARD                7 ' 0=OFF, 1=ON
 Define PREF_SYSTEM_COPYGRAPHICSCLIPBOARD            8 ' 0=OFF, 1=ON
 Define PREF_SYSTEM_PAPERUNITS                       9 ' 0=OFF, 1=ON
 Define PREF_SYSTEM_UNDO_COUNT                       10 ' number of Undo objects
@@ -2066,7 +2066,7 @@ Define PREF_MAPPER_DISTANCETYPE                     15 ' 0=Spherical, 1=Cartesia
 Define PREF_MAPPER_SHOWDEGREESMINUTESSECONDS        16 ' See MAPPER_INFO_DISPLAY_DMS return values
 Define PREF_MAPPER_LASTTHEMETYPE                    17 ' String: Last Default theme type used
 Define PREF_MAPPER_GRIDOUTPUTFORMATHANDLER          18 ' String: Handler for New Grids.
-Define PREF_MAPPER_CLIPREGIONTYPE                   19 ' SmallInt: returns MAPPER_INFO_CLIP_TYPE 
+Define PREF_MAPPER_CLIPREGIONTYPE                   19 ' SmallInt: returns MAPPER_INFO_CLIP_TYPE
 Define PREF_MAPPER_3DHARDWARE                       20 ' 0=OFF, 1=ON
 Define PREF_MAPPER_AUTORASTERZOOMLAYER              21 ' 0=OFF, 1=ON
 Define PREF_MAPPER_AUTOGRIDZOOMLAYER                22 ' 0=OFF, 1=ON
@@ -2138,7 +2138,7 @@ Define PREF_LEGEND_PENBORDER                        3 ' Pen clause for legend fr
 Define PREF_LEGEND_TITLEPATTERN                     4 ' Background brush clause
 Define PREF_LEGEND_SUBTITLEPATTERN                  5 ' Background brush clause
 Define PREF_LEGEND_STYLEPATTERN                     6 ' Background brush clause
-Define PREF_LEGEND_STYLESIZE                        7 ' 0=Small, 1=Large swatches 
+Define PREF_LEGEND_STYLESIZE                        7 ' 0=Small, 1=Large swatches
 Define PREF_LEGEND_PROMPTSAVEWORKSPACE              8 ' 0=OFF, 1=ON
 Define PREF_LEGEND_CREATEPRE1150LEGENDS             9 ' 0=OFF, 1=ON
 Define PREF_LEGEND_PAPERUNITS                       10 ' Returns PREF_SYSTEM_PAPERUNITS

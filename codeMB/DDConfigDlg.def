@@ -1,11 +1,54 @@
-﻿Declare Function DDConfigDlg() As Logical
+﻿Define	DD_DATATYPE_AGE_GENDER			1
+Define	DD_DATATYPE_PP_HOUSEHOLD			2
+Define	DD_DATATYPE_PP_INHABITANT		3
+Define	DD_DATATYPE_CS_POTENTIAL			4
+Define	DD_DATATYPE_HOUSEHOLD_INCOME		5
+Define	DD_DATATYPE_PROFESSION			6
+Define	DD_NUM_DATATYPES				6
+Define	DD_DATATYPE_ORIG_2_DESTINATION	DD_NUM_DATATYPES + 1	'Not really a datatype but defined so that it can return folder name
+
+Define	DD_DAYPART_MORNING				1
+Define	DD_DAYPART_AFTERNOON			2
+Define	DD_DAYPART_EVENING				3
+Define	DD_DAYPART_NIGHT				4
+Define	DD_NUM_DAYPARTS				4
+
+Declare Function DDConfigDlg() As Logical
 
 Declare Sub DDCSetSplitByWorkerHome(ByVal bValue As Logical)
 Declare Function DDCSplitByWorkerHome() As Logical
 Declare Sub DDCSetBoundaryFile(ByVal sFile As String)
 Declare Function DDCGetBoundaryFile() As String
+Declare Function DDCGetBoundaryFileName(  ByVal sMainFolder As String
+								, ByVal bPivoted As Logical
+								, ByVal nDatatype As Integer
+								, ByVal nDaypart As Integer
+								) As String
+
 Declare Sub DDCSetOrigin2DestFile(ByVal sFile As String)
 Declare Function DDCGetOrigin2DestFile() As String
+Declare Function DDCGetOrigin2DestFileName(	  ByVal sMainFolder As String
+									, ByVal bPivoted As Logical
+									, ByVal nDataType As Integer
+									, ByVal nDaypart As Integer
+									) As String
+Declare Sub DDCSetDDMainDataFolder(ByVal sFolder As String)
+Declare Function DDCGetDDMainDataFolder() As String
+
+Declare Sub DDCSetDayPart(ByVal nDaypart As Integer)
+Declare Function DDCGetDayPart() As Integer
+Declare Function DDCGetDayDescription(ByVal nDaypart As Integer) As String
+Declare Function DDCGetDayShortName(ByVal nDaypart As Integer) As String
+
+Declare Sub DDCSetDataType(ByVal nDatatype As Integer)
+Declare Function DDCGetDataType() As Integer
+Declare Function DDCGetDataTypeDescription(ByVal nDatatype As Integer) As String
+Declare Function DDCGetDataTypeFolderName( ByVal nDatatype As Integer) As String
+Declare Function DDCGetDataTypeFolderPath(	  ByVal sMainFolder As String
+									, ByVal bPivoted As Logical
+									, ByVal nDataType As Integer
+									) As String
+Declare Function DDCGetCurrentDataTypeFolder() As String
 
 Declare Sub DCCAddLayerSettings(	  ByVal sName As String
 '							, ByVal sType As String

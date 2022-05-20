@@ -5,6 +5,7 @@ Module=Library\Types\T_LABEL_SETTINGS.mbo
 Module=Library\Types\T_GROUP_LAYER_INFO.mbo
 Module=Library\Types\T_LAYER_INFO.mbo
 Module=Library\ARRAYLib.mbo
+Module=Library\COLUMNLib.mbo
 Module=Library\CONFIGFILELib.mbo
 Module=Library\DEBUGLib.mbo
 Module=Library\ERRORLib.mbo
