@@ -1,0 +1,72 @@
+﻿Define	DD_DATATYPE_AGE_GENDER			1
+Define	DD_DATATYPE_PP_HOUSEHOLD			2
+Define	DD_DATATYPE_PP_INHABITANT		3
+Define	DD_DATATYPE_CS_POTENTIAL			4
+Define	DD_DATATYPE_HOUSEHOLD_INCOME		5
+Define	DD_DATATYPE_PROFESSION			6
+Define	DD_DATATYPE_CONSUMER_STYLES		7
+Define	DD_NUM_DATATYPES				7
+Define	DD_DATATYPE_ORIG_2_DESTINATION	DD_NUM_DATATYPES + 1	'Not really a datatype but defined so that it can return folder name
+Define	DD_DATATYPE_BOUNDARIES			DD_NUM_DATATYPES + 2	'Not really a datatype but defined so that it can return folder name
+
+Define	DD_DAYPART_UNDEFINED			0
+Define	DD_DAYPART_MORNING				1
+Define	DD_DAYPART_AFTERNOON			2
+Define	DD_DAYPART_EVENING				3
+Define	DD_DAYPART_NIGHT				4
+Define	DD_NUM_DAYPARTS				4
+
+Define	DD_BOUNDARY_UNDEFINED			0
+Define	DD_BOUNDARY_HEX_H3_L9			1
+Define	DD_BOUNDARY_SA1				2
+Define	DD_BOUNDARY_OA					3
+Define	DD_BOUNDARY_ERG				4
+Define	DD_NUM_BOUNDARY_TYPES			4
+
+Declare Function DDFGetBoundaryFileName(  ByVal sMainFolder As String
+								, ByVal bPivoted As Logical
+								, ByVal nDatatype As Integer
+								, ByVal nDaypart As Integer
+								, ByVal nBoundaryType As Integer
+								, ByVal sFileType As String		'"TAB", "TXT"
+								) As String
+Declare Function DDFGetOrigin2DestFileName(	  ByVal sMainFolder As String
+									, ByVal bPivoted As Logical
+									, ByVal nDataType As Integer
+									, ByVal nDaypart As Integer
+									, ByVal nBoundaryType As Integer
+									, ByVal sFileType As String		'"TAB", "TXT"
+									) As String
+
+Declare Function DDFGetDaypartDescription(ByVal nDaypart As Integer) As String
+Declare Function DDFGetDaypartShortName(ByVal nDaypart As Integer) As String
+Declare Function DDFGetDaypartDescriptions(arrDayparts() As String) As Integer
+
+Declare Function DDFGetDataTypeDescription(ByVal nDatatype As Integer) As String
+Declare Function DDFGetDataTypeShortName(ByVal nDatatype As Integer) As String
+Declare Function DDFGetDataTypes(	  ByVal sMainFolder As String
+							, arrDatatypes() As Integer
+							, arrDatatypeDescriptions() As String
+							) As Integer
+Declare Function DDFGetDataTypeFolderName( ByVal nDatatype As Integer) As String
+Declare Function DDFGetDataTypeFolderPath(	  ByVal sMainFolder As String
+									, ByVal bPivoted As Logical
+									, ByVal nDataType As Integer
+									, ByVal nBoundaryType As Integer
+									) As String
+
+Declare Function DDFGetBoundaryDescription(ByVal nBoundaryType As Integer) As String
+Declare Function DDFGetBoundaryShortName(ByVal nDaypart As Integer) As String
+Declare Function DDFGetBoundaryTypes(	  ByVal sMainFolder As String
+								, arrBoundaryTypes() As Integer
+								, arrBoundaryDescriptions() As String
+								) As Integer
+Declare Function DDFGetBoundaryTypesAll(  arrBoundaryDescriptions() As String
+								) As Integer
+Declare Function DDFGetBoundaryFolderName( ByVal nBoundaryType As Integer) As String
+
+
+Declare Function DDFIsDataTypeSplitByDaypart(ByVal nDatatype As Integer) As Logical
+Declare Function DDFIsDataTypePivoted(ByVal nDatatype As Integer) As Logical
+
+Declare Function DDFGetLayerTypeFromLayerName(ByVal sLayerName As String) As String

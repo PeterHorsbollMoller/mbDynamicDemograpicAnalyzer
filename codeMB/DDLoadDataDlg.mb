@@ -1,0 +1,475 @@
+﻿'*******************************************************************************
+'** 	Created By Peter Horsbøll Møller, Precisely
+'** 	Program:
+'** 	Modul:
+'**
+'*******************************************************************************
+
+'-------------------------------------
+Include "MapBasic.def"
+Include "Icons.def"
+Include "Menu.def"
+'**default constants...
+Include "Library\Defaults.def"
+
+'-------------------------------------
+Include "Library\DEBUGLib.def"
+Include "Library\ERRORLib.def"
+Include "Library\FILELib.def"
+Include "Library\TABLELib.def"
+Include "Library\Types\T_LAYER_SETTINGS.def"
+Include "Library\Types\T_LABEL_SETTINGS.def"
+
+Include "DDFunctions.def"
+Include "DDConfigDlg.def"
+Include "DDLoadDataDlg.def"
+
+Declare Sub DDLDHandler_OnLoad
+Declare Sub DDLDHandler_OKClicked
+Declare Sub DDLDHandler_SelectMainFolder
+Declare Sub DDLDHandler_AllDataTypeClicked
+Declare Sub DDLDHandler_LoadDataTypes
+Declare Sub DDLDHandler_LoadBoundaryTypes
+Declare Sub DDLDHandler_BoundaryTypeClicked
+
+Define	CTRL_TXT_MAIN_FOLDER		100
+Define	CTRL_CMD_SELECT_MAIN_FOLDER	110
+Define	CTRL_LST_DATATYPES			300
+Define	CTRL_CHK_DATATYPES_ALL		310
+Define	CTRL_LST_BOUNDARYTYPES		400
+Define	CTRL_CHK_LOAD_BOUNDARY		500
+Define	CTRL_LBL_LOAD_BOUNDARY_FORCED	510
+Define	CTRL_CHK_LOAD_ORIG2DEST		600
+
+Dim	mbLoadBoundaries, mbLoadOrig2Dest As Logical,
+	marrDatatypesToLoad(), marrDatatypesDlg(), marrBoundaryTypesDlg() As Integer,
+	marrDatatypeDescriptionsDlg(), marrBoundaryDescriptionsDlg() As String,
+	mnBoundaryType As Integer
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
+Function DDLoadDataDlg() As Logical
+
+Dim	sMainFolder As String,
+	nCount As Integer
+
+OnError GoTo ErrorOccured
+
+DDLoadDataDlg = FALSE
+
+	Dialog
+		Title "Load Data from TXT"
+		Calling DDLDHandler_OnLoad
+
+		'**************************************************************************************
+		Control StaticText
+			Position 5,5
+			Title "Main Dynamic Demographic Data Folder"
+		Control EditText		ID CTRL_TXT_MAIN_FOLDER
+			Position 5,15		Width 310
+			Value FILEGetRelativePath(ApplicationDirectory$(), DDCGetDDMainDataFolder())
+		Control Button			ID CTRL_CMD_SELECT_MAIN_FOLDER
+			Position 315,15	Width 15	Height 13
+			Title "..."
+			Calling DDLDHandler_SelectMainFolder
+
+		'**************************************************************************************
+		Control StaticText
+			Position 5,30
+			Title "Data Types"
+		Control ListBox		ID CTRL_LST_DATATYPES
+			Position 5,40		Width 160	Height 40
+'			Title From Variable marrDatatypeDescriptionsDlg
+		Control CheckBox		ID CTRL_CHK_DATATYPES_ALL
+			Position 5,85
+			Title "Load all datatypes"
+			Calling DDLDHandler_AllDataTypeClicked
+
+		'**************************************************************************************
+		Control StaticText
+			Position 170,30
+			Title "Boundary Types"
+		Control ListBox		ID CTRL_LST_BOUNDARYTYPES
+			Position 170,40	Width 160	Height 40
+'			Title From Variable marrBoundaryDescriptionsDlg
+			Calling DDLDHandler_BoundaryTypeClicked
+
+		'**************************************************************************************
+
+		Control CheckBox		ID CTRL_CHK_LOAD_BOUNDARY
+			Position 5,105
+			Title "Load boundary file"
+			Value mbLoadBoundaries
+		Control StaticText		ID CTRL_LBL_LOAD_BOUNDARY_FORCED
+			Position 15,115
+			Title "Boundary file has to be loaded as it hasn't been loaded already"
+			Hide
+
+		Control CheckBox		ID CTRL_CHK_LOAD_ORIG2DEST
+			Position 5,130
+			Title "Load 'Origin to Destination' files"
+			Value mbLoadOrig2Dest
+
+		Control OKButton
+			Calling DDLDHandler_OKClicked
+		Control CancelButton
+
+	If not CommandInfo(CMD_INFO_DLG_OK) Then
+		Exit Function
+	End If
+
+	DDLoadDataDlg = TRUE
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDLoadDataDlg")
+	Call ERRShow()
+
+End Function
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub DDLDHandler_OnLoad
+
+OnError GoTo ErrorOccured
+
+	Call DDLDHandler_LoadDataTypes
+	Call DDLDHandler_LoadBoundaryTypes
+
+	Call DDLDHandler_AllDataTypeClicked
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDLDHandler_OnLoad")
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub DDLDHandler_OKClicked
+
+Dim	nItem, nCount As Integer,
+	sPath As String
+
+OnError GoTo ErrorOccured
+
+	Call DEBUGPrint("-------------------------------")
+	Call DEBUGPrint("DDLDHandler_OKClicked")
+	sPath	= FILEGetAbsolutePath(ApplicationDirectory$(), ReadControlValue(CTRL_TXT_MAIN_FOLDER))
+	Call DEBUGPrint("Main Folder: " & sPath)
+	Call DDCSetDDMainDataFolder(sPath)
+
+	nItem	= ReadControlValue(CTRL_LST_BOUNDARYTYPES)
+	Call DEBUGPrint("Boundary Type Item: " & nItem)
+	If nItem = 0 Then
+		Note "Please select the desired boundary type to load!"
+		Dialog Preserve
+		Exit Sub
+	End If
+	Call DEBUGPrint("Number of Boundary Types: " & Ubound(marrBoundaryTypesDlg))
+	mnBoundaryType		= marrBoundaryTypesDlg(nItem)
+	Call DEBUGPrint("Boundary Type: " & mnBoundaryType)
+
+	mbLoadBoundaries	= ReadControlValue(CTRL_CHK_LOAD_BOUNDARY)
+	Call DEBUGPrint("Load Boundary File: " & mbLoadBoundaries)
+	mbLoadOrig2Dest	= ReadControlValue(CTRL_CHK_LOAD_ORIG2DEST)
+	Call DEBUGPrint("Load Orig2Dest File: " & mbLoadOrig2Dest)
+
+	nCount = 0
+	Redim marrDatatypesToLoad(nCount)
+
+	If ReadControlValue(CTRL_CHK_DATATYPES_ALL) Then
+		Call DEBUGPrint("Number of Data Types: " & Ubound(marrDatatypesDlg))
+		For nItem = 1 To Ubound(marrDatatypesDlg)
+			nCount = nCount + 1
+			Redim marrDatatypesToLoad(nCount)
+			marrDatatypesToLoad(nCount)		= marrDatatypesDlg(nItem)
+		Next
+	Else
+		nItem	= ReadControlValue(CTRL_LST_DATATYPES)
+		Call DEBUGPrint("Data Type Item: " & nItem)
+		If nItem > 0 Then
+			nCount = nCount + 1
+			Redim marrDatatypesToLoad(nCount)
+			marrDatatypesToLoad(nCount)		= marrDatatypesDlg(nItem)
+		End If
+	End If
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDLDHandler_OKClicked")
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub DDLDHandler_SelectMainFolder
+
+Dim	sPath  As String,
+	nFolder, nNumFolders As Integer
+
+OnError GoTo ErrorOccured
+
+	sPath	= FILEGetAbsolutePath(ApplicationDirectory$(), ReadControlValue(CTRL_TXT_MAIN_FOLDER))
+	sPath	= FILEBrowseForFolder("Select Dynamic Demographic Data folder...", sPath)
+	If sPath = "" Then
+		Exit Sub
+	End If
+
+	Alter Control CTRL_TXT_MAIN_FOLDER	Value FILEGetRelativePath(ApplicationDirectory$(), sPath)
+	Call DDLDHandler_LoadDataTypes
+	Call DDLDHandler_LoadBoundaryTypes
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDLDHandler_SelectMainFolder")
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub DDLDHandler_AllDataTypeClicked
+
+OnError GoTo ErrorOccured
+
+	If ReadControlValue(CTRL_CHK_DATATYPES_ALL) Then
+		Alter Control CTRL_LST_DATATYPES Disable
+	Else
+		Alter Control CTRL_LST_DATATYPES Enable
+	End If
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDLDHandler_AllDataTypeClicked")
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub DDLDHandler_BoundaryTypeClicked
+
+Dim	sPath, sFile As String,
+	nItemBoundary, nBoundary As Integer
+
+OnError GoTo ErrorOccured
+
+	nItemBoundary	= ReadControlValue(CTRL_LST_BOUNDARYTYPES)
+	If nItemBoundary = 0 Then
+		Exit Sub
+	End If
+	nBoundary		= marrBoundaryTypesDlg(nItemBoundary)
+
+	sPath		= ReadControlValue(CTRL_TXT_MAIN_FOLDER)
+	sPath		= FILEGetAbsolutePath(ApplicationDirectory$(), sPath)
+
+	Call DEBUGPrint("Boundary Type selected: " & nBoundary & ": " & DDFGetBoundaryDescription(nBoundary))
+	sFile = DDFGetBoundaryFileName(sPath, TRUE, DD_DATATYPE_BOUNDARIES, DD_DAYPART_UNDEFINED, nBoundary, "TAB")
+	If sFile = "" Then
+		Alter Control CTRL_CHK_LOAD_BOUNDARY 		Value TRUE
+		Alter Control CTRL_CHK_LOAD_BOUNDARY 		Disable
+		Alter Control CTRL_LBL_LOAD_BOUNDARY_FORCED	Show
+	Else
+		Alter Control CTRL_CHK_LOAD_BOUNDARY 		Value FALSE
+		Alter Control CTRL_CHK_LOAD_BOUNDARY 		Enable
+		Alter Control CTRL_LBL_LOAD_BOUNDARY_FORCED	Hide
+	End If
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDLDHandler_BoundaryTypeClicked")
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub DDLDHandler_LoadDataTypes
+
+Dim	sPath As String
+
+OnError GoTo ErrorOccured
+
+	sPath	= ReadControlValue(CTRL_TXT_MAIN_FOLDER)
+	sPath	= FILEGetAbsolutePath(ApplicationDirectory$(), sPath)
+
+	Redim marrDatatypesDlg(0)
+	Redim marrDatatypeDescriptionsDlg(0)
+	If DDFGetDataTypes(sPath, marrDatatypesDlg, marrDatatypeDescriptionsDlg) > 0 Then
+		Alter Control CTRL_LST_DATATYPES	Title From Variable marrDatatypeDescriptionsDlg
+	Else
+		Alter Control CTRL_LST_DATATYPES	Title From Variable marrDatatypeDescriptionsDlg
+		Note "Please select a folder with at least one sub folder!"
+		Exit Sub
+	End If
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDLDHandler_LoadDataTypes")
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub DDLDHandler_LoadBoundaryTypes
+
+Dim	sPath As String
+
+OnError GoTo ErrorOccured
+
+	sPath	= ReadControlValue(CTRL_TXT_MAIN_FOLDER)
+	sPath	= FILEGetAbsolutePath(ApplicationDirectory$(), sPath)
+
+	Redim marrBoundaryTypesDlg(0)
+	Redim marrBoundaryDescriptionsDlg(0)
+	If DDFGetBoundaryTypes(sPath, marrBoundaryTypesDlg(), marrBoundaryDescriptionsDlg()) > 0 Then
+		Alter Control CTRL_LST_BOUNDARYTYPES	Title From Variable marrBoundaryDescriptionsDlg
+	Else
+		Alter Control CTRL_LST_BOUNDARYTYPES	Title From Variable marrBoundaryDescriptionsDlg
+		Note "No boundary Types found!"
+		Exit Sub
+	End If
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDLDHandler_LoadBoundaryTypes")
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
+Function DDLDLoadBoundaryFiles() As Logical
+
+OnError GoTo ErrorOccured
+
+	DDLDLoadBoundaryFiles = mbLoadBoundaries
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDLDLoadBoundaryFiles")
+	Call ERRShow()
+
+End Function
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
+Function DDLDLoadOrig2DestFiles() As Logical
+
+OnError GoTo ErrorOccured
+
+	DDLDLoadOrig2DestFiles = mbLoadOrig2Dest
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDLDLoadOrig2DestFiles")
+	Call ERRShow()
+
+End Function
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
+Function DDLDGetNumberOfDataFiles() As Integer
+
+OnError GoTo ErrorOccured
+
+	DDLDGetNumberOfDataFiles = Ubound(marrDatatypesToLoad)
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDLDGetNumberOfDataFiles")
+	Call ERRShow()
+
+End Function
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
+Function DDLDGetDataType(ByVal nFile As Integer) As Integer
+
+OnError GoTo ErrorOccured
+
+	DDLDGetDataType = marrDatatypesToLoad(nFile)
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDLDGetDataType")
+	Call ERRShow()
+
+End Function
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
+Function DDLDGetBoundaryType() As Integer
+
+OnError GoTo ErrorOccured
+
+	DDLDGetBoundaryType = mnBoundaryType
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDLDGetBoundaryType")
+	Call ERRShow()
+
+End Function

@@ -18,12 +18,13 @@ Include "Library\RibbonElements.def"
 
 Define xProgram 		"Dynamic Demograpic Analyzer"
 Define xProgramMenu		"DynamicDemograpicAnalyzer"
-Define xVersion 		"1.4.0"
+Define xVersion 		"1.5.2"
 Define xYear			"2022"
 Define xAddToMenuBar	FALSE
 
 Define FILE_INI		GetFolderPath$(FOLDER_MI_PREFERENCE) & "DynamicDemograpicAnalyzer.ini"
 Define FILE_DBG		ApplicationDirectory$() & "DynamicDemograpicAnalyzer.dbg"
+Define FILE_HLP		ApplicationDirectory$() & "DynamicDemograpicAnalyzer.pdf"
 
 '-------------------------------------
 Include "Library\Types\T_LAYER_SETTINGS.def"
@@ -39,9 +40,12 @@ Include "Library\FILELib.def"
 Include "Library\GroupLayerLib.def"
 Include "Library\ProgramInfo.def"
 Include "Library\RIBBONLib.def"
+Include "Library\STRINGLib.def"
 Include "Library\TABLELib.def"
 
+Include "DDFunctions.def"
 Include "DDConfigDlg.def"
+Include "DDDataLoading.def"
 
 '-----------------------------------------------------------------------------------------
 Declare Sub Main
@@ -84,9 +88,6 @@ Declare Sub MENUAddToQueryTablesToMap(	  ByVal nMID As Integer
 Declare Sub MENUDestination2Origins
 Declare Sub MENUOrigin2Destinations
 
-Declare Sub MENUSelectTableDDOrig2Dest
-Declare Sub MENUSelectTableDDBoundary
-
 Declare Function MENUGetLayerPen(ByVal sType As String) As Pen
 Declare Function MENUGetLayerBrush(ByVal sType As String) As Pen
 
@@ -96,7 +97,7 @@ Type T_DD_RESULT
 	sOriginAreaType	As String
 End Type
 
-Dim	msTabBoundary, msTabOrigin2Dest, marrQueryNames() As String,
+Dim	msTabBoundary, msTabOrigin2Dest, marrQueryNames(), marrQueryTypes() As String,
 	mtarrResults(0) As T_DD_RESULT
 'Dim	marrQueryTypes() As String
 
@@ -118,6 +119,7 @@ OnError GoTo ErrorOccured
 	Call PRGISetApplicationDevelopedBy("Peter Horsbøll Møller")
 	Call PRGISetDescription(PRGIGetApplicationName() & " helps you analyze the Precisely Demographic dataset to understand origin and destinations.")
 	Call PRGISetApplicationImageUri(ApplicationDirectory$() & "DynamicDemographic_32.png")
+	Call PRGISetApplicationHelpFile(FILE_HLP)
 
 	'***Enabling Debug if file exists
 	Call DEBUGEnableByFile(FILE_DBG)
@@ -149,7 +151,7 @@ OnError GoTo ErrorOccured
 
 	nCtrlIdx = RBNGroupAddControl("cmdSaveAs", "Save Result as", "", ControlType_Button, sTabName, sGroupName)
 	If nCtrlIdx > 0 Then
-		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Create a Origin to Destination Analysis.", "")
+		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Save a Origin to Destination Analysis into tables.", "")
 		Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_LARGE, "", ApplicationDirectory$() & "DDSaveAs.png")
 		Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUSaveAs")
 	End If
@@ -159,35 +161,20 @@ OnError GoTo ErrorOccured
 	' C O N T R O L S   A D D E D   T O   A P P L I C A T I O N   C O N T E X T   M E N U
 	'****************************************************************************************
 	'**Application Context Menu
-'	nCtrlIdx	= RBNToolContextMenuAddMenuItem("cmdSetBoundaryFile", "Set Boundary File...", "")
-'	If nCtrlIdx > 0 Then
-'		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Select file with Boundaries.", "")
-'		Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_SMALL, MI_IMG_MAP_OPENTABLE_16, MI_IMG_MAP_OPENTABLE_32)
-'		Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUSelectTableDDBoundary")
-'	End If
-'
-'	nCtrlIdx	= RBNToolContextMenuAddMenuItem("cmdSetOrig2Dest", "Set Origin to Destination File...", "")
-'	If nCtrlIdx > 0 Then
-'		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Select file with Origin to Destination.", "")
-'		Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_SMALL, MI_IMG_MAP_OPENTABLE_16, MI_IMG_MAP_OPENTABLE_32)
-'		Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUSelectTableDDOrig2Dest")
-'	End If
-
 	nCtrlIdx	= RBNToolContextMenuAddMenuItem("cmdConfiguration", "Configuration...", "")
 	If nCtrlIdx > 0 Then
 		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Open configuration dialog for Dynamic Demographic Analyzer", "")
-		Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_SMALL, MI_IMG_MAP_OPENTABLE_16, MI_IMG_MAP_OPENTABLE_32)
+		Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_SMALL, MI_IMG_TLS_CTLGBROWSEROPTS_16, MI_IMG_TLS_CTLGBROWSEROPTS_32)
 		Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUConfiguration")
+	End If
+	nCtrlIdx	= RBNToolContextMenuAddMenuItem("cmdDataLoading", "Data Loading...", "")
+	If nCtrlIdx > 0 Then
+		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Convert Dynamic Demographic Text file into Extended Tab Files.", "")
+		Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_SMALL, MI_IMG_MAP_OPENTABLE_16, MI_IMG_MAP_OPENTABLE_32)
+		Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "DDDataLoading")
 	End If
 
 	Call MENUReadConfigFile
-
-'	If DDCGetBoundaryFile() = "" Then
-'		Call MENUSelectTableDDBoundary
-'	End If
-'	If DDCGetOrigin2DestFile() = "" Then
-'		Call MENUSelectTableDDOrig2Dest
-'	End If
 
 	Call MENUEnableDisableControls
 
@@ -258,64 +245,6 @@ ErrorOccured:
 
 End Sub
 
-'****************************************
-'**   Created by Peter Horsbøll Møller, Precisely
-'**   Ending MapBasic application
-'****************************************
-Sub MENUSelectTableDDOrig2Dest
-
-Dim	sFile As String
-
-OnError GoTo ErrorOccured
-
-	sFile = FileOpenDlg(PathToDirectory$(DDCGetOrigin2DestFile()), PathToFileName$(DDCGetOrigin2DestFile()), "TAB", "Select Origin to Destination Dynamic Demographic file...")
-	If sFile = "" Then
-		Exit Sub
-	End If
-
-	Call DDCSetOrigin2DestFile(sFile)
-
-	Call MENUEnableDisableControls
-
-'	Call CONFIGWriteKey(FILE_INI, "DD_TABFILES", "ORIG2DEST", FILEGetRelativePath(ApplicationDirectory$(), DDCGetOrigin2DestFile()))
-
-	Exit Sub
-'-------------------------
-ErrorOccured:
-	Call ERRCreate(Err(), Error$(), "MENUSelectTableDDOrig2Dest")
-	Call ERRShow()
-
-End Sub
-
-'****************************************
-'**   Created by Peter Horsbøll Møller, Precisely
-'**   Ending MapBasic application
-'****************************************
-Sub MENUSelectTableDDBoundary
-
-Dim	sFile As String
-
-OnError GoTo ErrorOccured
-
-	sFile = FileOpenDlg(PathToDirectory$(DDCGetBoundaryFile()), PathToFileName$(DDCGetBoundaryFile()), "TAB", "Select Dynamic Demographic Boundary file...")
-	If sFile = "" Then
-		Exit Sub
-	End If
-
-	Call DDCSetBoundaryFile(sFile)
-
-	Call MENUEnableDisableControls
-
-'	Call CONFIGWriteKey(FILE_INI, "DD_TABFILES", "HEX_BOUNDARY", FILEGetRelativePath(ApplicationDirectory$(), DDCGetBoundaryFile()))
-
-	Exit Sub
-'-------------------------
-ErrorOccured:
-	Call ERRCreate(Err(), Error$(), "MENUSelectTableBoundary")
-	Call ERRShow()
-
-End Sub
-
 '**********************************************************************************************''
 'Created by Peter Horsbøll Møller, Precisely
 'Parameters:
@@ -358,6 +287,7 @@ OnError GoTo ErrorOccured
 
 	Call CONFIGWriteKey(FILE_INI, "DD_TABFILES", "DATATYPE", DDCGetDataType())
 	Call CONFIGWriteKey(FILE_INI, "DD_TABFILES", "DAYPART", DDCGetDayPart())
+	Call CONFIGWriteKey(FILE_INI, "DD_TABFILES", "BOUNDARYTYPE", DDCGetBoundaryType())
 
 	Call CONFIGWriteKey(FILE_INI, "DD_FOLDERS", "MAINDATA", FILEGetRelativePath(ApplicationDirectory$(), DDCGetDDMainDataFolder()))
 
@@ -366,8 +296,7 @@ OnError GoTo ErrorOccured
 '	Call DEBUGPrint("Writing Layer Settings...")
 	For nName = 1 To Ubound(marrQueryNames)
 '		Call DEBUGPrint(nName & " " & marrQueryNames(nName) & "...")
-'		If DCCGetLayerSettings(marrQueryNames(nName), marrQueryTypes(nName), tLyr, tLbl) Then
-		If DCCGetLayerSettings(marrQueryNames(nName), tLyr, tLbl) Then
+		If DDCGetLayerSettings(marrQueryNames(nName), marrQueryTypes(nName), tLyr, tLbl) Then
 '			Call DEBUGPrint("Write Config " & marrQueryNames(nName) & ": Brush Overrides: " & Ubound(tLyr.brsOverride))
 			Call CONFIGWriteKey(FILE_INI, "LAYERSETTINGS", marrQueryNames(nName), tlsToString(tLyr))
 			Call CONFIGWriteKey(FILE_INI, "LABELSETTINGS", marrQueryNames(nName), tlbsToString(tLbl))
@@ -431,26 +360,29 @@ OnError GoTo ErrorOccured
 	If sType <> "" Then
 		Call DDCSetDayPart(Val(sType))
 	End If
+	sType = CONFIGReadKey(FILE_INI, "DD_TABFILES", "BOUNDARYTYPE")
+	If sType <> "" Then
+		Call DDCSetBoundaryType(Val(sType))
+	End If
 
 	'***************************************************************************
 	For i = 1 To 2
-		sTo		= IIf(i = 1, "Origin", "Destination")
-		sFrom	= IIf(i = 1, "Destination", "Origin")
+		sTo		= IIf(i = 1, "Orig", "Dest")
+		sFrom	= IIf(i = 1, "Dest", "Orig")
 		Call ARRAYAddValueString(marrQueryNames, sTo & "_DD")
+		Call ARRAYAddValueString(marrQueryTypes, sTo)
 		Call ARRAYAddValueString(marrQueryNames, sTo & "s_DD")
+		Call ARRAYAddValueString(marrQueryTypes, sTo & "s")
 		Call ARRAYAddValueString(marrQueryNames, sTo & "s_Home_DD")
+		Call ARRAYAddValueString(marrQueryTypes, sTo & "s")
 		Call ARRAYAddValueString(marrQueryNames, sTo & "s_Work_DD")
+		Call ARRAYAddValueString(marrQueryTypes, sTo & "s")
 		Call ARRAYAddValueString(marrQueryNames, sFrom & "_2_" & sTo & "s_DD")
+		Call ARRAYAddValueString(marrQueryTypes, sFrom & "_2_" & sTo & "s")
 		Call ARRAYAddValueString(marrQueryNames, sFrom & "_2_" & sTo & "s_Home_DD")
+		Call ARRAYAddValueString(marrQueryTypes, sFrom & "_2_" & sTo & "s")
 		Call ARRAYAddValueString(marrQueryNames, sFrom & "_2_" & sTo & "s_Work_DD")
-
-'		Call ARRAYAddValueString(marrQueryTypes, sTo)
-'		Call ARRAYAddValueString(marrQueryTypes, sTo)
-'		Call ARRAYAddValueString(marrQueryTypes, sTo)
-'		Call ARRAYAddValueString(marrQueryTypes, sTo)
-'		Call ARRAYAddValueString(marrQueryTypes, sTo & " Lines")
-'		Call ARRAYAddValueString(marrQueryTypes, sTo & " Lines")
-'		Call ARRAYAddValueString(marrQueryTypes, sTo & " Lines")
+		Call ARRAYAddValueString(marrQueryTypes, sFrom & "_2_" & sTo & "s")
 	Next
 
 '	Call DEBUGPrint("Reading Layer Settings...")
@@ -493,8 +425,7 @@ OnError GoTo ErrorOccured
 				End If
 			End If
 		End If
-'		Call DCCAddLayerSettings(marrQueryNames(nName), marrQueryTypes(nName), tLyr, tLbl)
-		Call DCCAddLayerSettings(marrQueryNames(nName), tLyr, tLbl)
+		Call DDCAddLayerSettings(marrQueryNames(nName), marrQueryTypes(nName), tLyr, tLbl)
 	Next
 
 	Exit Sub
@@ -512,7 +443,7 @@ End Sub
 '**********************************************************************************************''
 Sub MENUSaveAs
 
-Dim	sTab, sFile, sPath As String,
+Dim	sTab, sFile, sPath, sName As String,
 	i, nItem, nMID As Integer
 
 OnError GoTo ErrorOccured
@@ -539,12 +470,6 @@ OnError GoTo ErrorOccured
 		Exit Sub
 	End If
 
-	sFile = FileSaveAsDlg("", sTab, "TAB", "Specify location to save analysis result...")
-	If sFile = "" Then
-		Exit Sub
-	End If
-	sPath	= PathToDirectory$(sFile)
-
 	For i = 1 To Ubound(mtarrResults)
 		If not TABIsOpen(mtarrResults(i).sQueryTable) Then
 			Note "All Analysis results do not exist. Table '" & mtarrResults(i).sQueryTable & "' is not open!"
@@ -552,14 +477,33 @@ OnError GoTo ErrorOccured
 		End If
 	Next
 
-	For i = 1 To Ubound(mtarrResults)
-		Call DEBUGPrint("Saving '" & mtarrResults(i).sQueryTable & "' into '" & sPath & mtarrResults(i).sQueryTable & "'")
-		Commit Table mtarrResults(i).sQueryTable As sPath & mtarrResults(i).sQueryTable
-		Close Table mtarrResults(i).sQueryTable
-		Open Table sPath & mtarrResults(i).sQueryTable
-	Next
+	sFile = FileSaveAsDlg("", "My Project", "TAB", "Specify location and project name for analysis result...")
+	If sFile = "" Then
+		Exit Sub
+	End If
+	sPath	= PathToDirectory$(sFile)
+	sName	= PathToFileName$(sFile)
+	sName	= Left$(PathToFileName$(sName), Len(sName) - 4)
 
-	Call MENUAddFromQueryTablesToMap(nMID, mtarrResults(1).sQueryTable, mtarrResults(1).sToFromType)
+'	sTo/sFrom = "Orig"
+'	sTo/sFrom = "Dest"
+'	sTo & "_DD"
+'	sFrom & "s_DD"
+'	sFrom & "s_Home_DD"
+'	sFrom & "s_Work_DD"
+'	sTo & "_2_" & sFrom & "s_DD"
+'	sTo & "_2_" & sFrom & "s_Home_DD"
+'	sTo & "_2_" & sFrom & "s_WORK_DD"
+
+	For i = 1 To Ubound(mtarrResults)
+		sFile = STRINGReplace(mtarrResults(i).sQueryTable, "_", " ")
+		sFile = STRINGReplace(sFile, "DD", sName & ".tab")
+		Call DEBUGPrint("Saving '" & mtarrResults(i).sQueryTable & "' into '" & sPath & sFile & "'")
+		Commit Table mtarrResults(i).sQueryTable As sPath & sFile
+		Close Table mtarrResults(i).sQueryTable
+		Open Table sPath & sFile
+		mtarrResults(i).sQueryTable = PathToTableName$(sPath & sFile)
+	Next
 
 	For i = 1 To 2
 		If i = 2 And Ubound(mtarrResults) = 3 Then
@@ -569,6 +513,10 @@ OnError GoTo ErrorOccured
 		nItem = i * 2
 		Call MENUAddToQueryTablesToMap(nMID, mtarrResults(nItem).sQueryTable, mtarrResults(nItem + 1).sQueryTable, mtarrResults(nItem).sToFromType, mtarrResults(nItem).sOriginAreaType)
 	Next
+
+	Call MENUAddFromQueryTablesToMap(nMID, mtarrResults(1).sQueryTable, mtarrResults(1).sToFromType)
+
+	Redim mtarrResults(0)
 
 	Exit Sub
 '-------------------------
@@ -616,11 +564,26 @@ MENUCreateFromQueryTable = ""
 	Close Table __currDD
 
 	aAreaID	= sTable & "." & sColumnAreaID
-	Select *
-		From sTable
-		Where aAreaID = sAreaID
-		And OBJ
-		Into sQueryName NoSelect
+	Do Case ColumnInfo(sTable, sColumnAreaID, COL_INFO_TYPE)
+		Case COL_TYPE_CHAR
+			Select *
+				From sTable
+				Where aAreaID = sAreaID
+				And OBJ
+				Into sQueryName NoSelect
+		Case COL_TYPE_INTEGER, COL_TYPE_DECIMAL, COL_TYPE_FLOAT, COL_TYPE_SMALLINT, COL_TYPE_LARGEINT
+			Select *
+				From sTable
+				Where aAreaID = Val(sAreaID)
+				And OBJ
+				Into sQueryName NoSelect
+		Case Else
+			Select *
+				From sTable
+				Where aAreaID = sAreaID
+				And OBJ
+				Into sQueryName NoSelect
+	End Case
 
 	If TableInfo(sQueryName, TAB_INFO_NROWS) = 0 Then
 		Close Table sQueryName
@@ -679,12 +642,30 @@ MENUCreateToQueryTables = 0
 					& " And " & sTabOrigin2Dest & "." & sColOD_AreaIDStart & " = " & Chr$(34) & sAreaID & Chr$(34)
 					& " And OBJ Into " & sQueryNameArea & " NoSelect")
 
-		Select *
-			From sTabBoundary, sTabOrigin2Dest
-			Where aB_AreaID = aOD_AreaID
-			And aOD_AreaIDStart = sAreaID
-			And OBJ
-			Into sQueryNameArea NoSelect
+		Do Case ColumnInfo(sTabOrigin2Dest, sColOD_AreaIDStart, COL_INFO_TYPE)
+			Case COL_TYPE_CHAR
+				Select *
+					From sTabBoundary, sTabOrigin2Dest
+					Where aB_AreaID = aOD_AreaID
+					And aOD_AreaIDStart = sAreaID
+					And OBJ
+					Into sQueryNameArea NoSelect
+			Case COL_TYPE_INTEGER, COL_TYPE_DECIMAL, COL_TYPE_FLOAT, COL_TYPE_SMALLINT, COL_TYPE_LARGEINT
+				Select *
+					From sTabBoundary, sTabOrigin2Dest
+					Where aB_AreaID = aOD_AreaID
+					And aOD_AreaIDStart = Val(sAreaID)
+					And OBJ
+					Into sQueryNameArea NoSelect
+			Case Else
+				Select *
+					From sTabBoundary, sTabOrigin2Dest
+					Where aB_AreaID = aOD_AreaID
+					And aOD_AreaIDStart = sAreaID
+					And OBJ
+					Into sQueryNameArea NoSelect
+		End Case
+
 	Else
 		Call DEBUGPrint("Select * From " & sTabBoundary & ", " & sTabOrigin2Dest
 					& " Where " & sTabBoundary & "." & sColB_AreaID & " = " & sTabOrigin2Dest & "." & sColOD_AreaID
@@ -692,20 +673,32 @@ MENUCreateToQueryTables = 0
 					& " And " & sTabOrigin2Dest & "." & sColOD_AreaIDStart & " = " & Chr$(34) & sAreaID & Chr$(34)
 					& " And OBJ Into " & sQueryNameArea & " NoSelect")
 
-'	Error: 414
-'	(dyndemoanalyzermenu.mb:682) Variable or Field dd_hex_age_gender_aft_aus_p.Origin_Area_I not defined.
-'	Select * From dd_hex_09_aus As "b", dd_hex_age_gender_aft_aus_p As "od"
-'	Where b.Area_ID = od.Origin_Area_ID And od.Origin_Area_Type = "Home" And od.Dest_Area_ID = "89be08cf437ffff" And OBJ Into Origins_Home_DD NoSelect
-'	Error: 414
-'	(dyndemoanalyzermenu.mb:682) Variable or Field dd_hex_age_gender_aft_aus_p.Origin_Area_T not defined.
-
-		Select *
-			From sTabBoundary, sTabOrigin2Dest
-			Where aB_AreaID = aOD_AreaID
-			And aOD_OriginAreaType = sOriginAreaType
-			And aOD_AreaIDStart = sAreaID
-			And OBJ
-			Into sQueryNameArea NoSelect
+		Do Case ColumnInfo(sTabOrigin2Dest, sColOD_AreaIDStart, COL_INFO_TYPE)
+			Case COL_TYPE_CHAR
+				Select *
+					From sTabBoundary, sTabOrigin2Dest
+					Where aB_AreaID = aOD_AreaID
+					And aOD_OriginAreaType = sOriginAreaType
+					And aOD_AreaIDStart = sAreaID
+					And OBJ
+					Into sQueryNameArea NoSelect
+			Case COL_TYPE_INTEGER, COL_TYPE_DECIMAL, COL_TYPE_FLOAT, COL_TYPE_SMALLINT, COL_TYPE_LARGEINT
+				Select *
+					From sTabBoundary, sTabOrigin2Dest
+					Where aB_AreaID = aOD_AreaID
+					And aOD_OriginAreaType = sOriginAreaType
+					And aOD_AreaIDStart = Val(sAreaID)
+					And OBJ
+					Into sQueryNameArea NoSelect
+			Case Else
+				Select *
+					From sTabBoundary, sTabOrigin2Dest
+					Where aB_AreaID = aOD_AreaID
+					And aOD_OriginAreaType = sOriginAreaType
+					And aOD_AreaIDStart = sAreaID
+					And OBJ
+					Into sQueryNameArea NoSelect
+		End Case
 	End If
 	nNumRows	= TableInfo(sQueryNameArea, TAB_INFO_NROWS)
 
@@ -745,7 +738,7 @@ OnError GoTo ErrorOccured
 		Window nMID
 		Layer sQueryName
 
-	If Not DCCApplyLayerSettings(nMID, sQueryName) Then
+	If Not DDCApplyLayerSettings(nMID, sQueryName, "") Then
 		Set Map
 			Window nMID
 			Layer sQueryName
@@ -799,14 +792,14 @@ OnError GoTo ErrorOccured
 		End If
 	End If
 
-	If Not DCCApplyLayerSettings(nMID, sQueryNameLine) Then
+	If Not DDCApplyLayerSettings(nMID, sQueryNameLine, "") Then
 		Set Map
 			Window nMID
 				Layer sQueryNameLine
 					Display Global Global Line (3,3,8388608)
 		Call DebugPrint("Layer '" & sQueryNameLine & "' has been manually configured.")
 	End If
-	If Not DCCApplyLayerSettings(nMID, sQueryNameArea) Then
+	If Not DDCApplyLayerSettings(nMID, sQueryNameArea, "") Then
 		Set Map
 			Window nMID
 				Layer sQueryNameArea
@@ -838,8 +831,8 @@ Dim	oPoint, oFrom As Object,
 
 OnError GoTo ErrorOccured
 
-	sFrom	= "Destination"
-	sTo		= "Origin"
+	sFrom	= "Dest"
+	sTo		= "Orig"
 
 	If FrontWindow() = 0 Then
 		Call RBNNotificationShow(PRGIGetApplicationName(), "Please use this tool in a map window!", Notify_Error, 2500)
@@ -1004,8 +997,8 @@ Dim	oPoint, oFrom As Object,
 
 OnError GoTo ErrorOccured
 
-	sFrom	= "Origin"
-	sTo		= "Destination"
+	sFrom	= "Orig"
+	sTo		= "Dest"
 
 	If FrontWindow() = 0 Then
 		Call RBNNotificationShow(PRGIGetApplicationName(), "Please use this tool in a map window!", Notify_Error, 2500)
@@ -1169,13 +1162,13 @@ OnError GoTo ErrorOccured
 MENUGetLayerPen = MakePen(2,1,45056)
 
 	Do Case sType
-		Case "Origin"
+		Case "Origin", "Orig"
 			MENUGetLayerPen = MakePen(2,1,16711680)
-		Case "Origins"
+		Case "Origins", "Origs"
 			MENUGetLayerPen = MakePen(2,1,16711680)
-		Case "Destination"
+		Case "Destination", "Dest"
 			MENUGetLayerPen = MakePen(2,1,45056)
-		Case "Destinations"
+		Case "Destinations", "Dests"
 			MENUGetLayerPen = MakePen(2,1,45056)
 	End Case
 
@@ -1201,13 +1194,13 @@ OnError GoTo ErrorOccured
 MENUGetLayerBrush = MakePen(2,1,45056)
 
 	Do Case sType
-		Case "Origin"
+		Case "Origin", "Orig"
 			MENUGetLayerBrush = MakeBrush(2,16711680,16777215)
-		Case "Origins"
+		Case "Origins", "Origs"
 			MENUGetLayerBrush = MakeBrush(2,16711680,16777215)
-		Case "Destination"
+		Case "Destination", "Dest"
 			MENUGetLayerBrush = MakeBrush(2,45056,45056)
-		Case "Destinations"
+		Case "Destinations", "Dests"
 			MENUGetLayerBrush = MakeBrush(2,45056,45056)
 	End Case
 

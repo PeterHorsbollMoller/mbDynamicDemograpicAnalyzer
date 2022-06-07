@@ -1,58 +1,19 @@
-15:30:10 Set Map Window 3130 Layer 1  Label Auto Off Auto Retry Off Pen (1, 2, 0) Position Center Right Offset 8 Font ("Precisely",0,10,0) Parallel Off Visibility On Overlap Off PartialSegments On Duplicates On Max 2147483647 LabelAlpha 255 AutoPosition Off AutoSizes 1 AutoSizeStep 2 SuppressIfNoFit Off AutoCallout Off
-15:30:10 Set Map Window 3130 Layer 1  Label With area_id Abbreviation Off Abbreviate with area_id
-15:30:10 Zooming to extent of layer 'Origin_2_Destinations_DD'
-09:49:15 1. folder: D:\3. Demo\2. Maps\Precisely\DynamicDemographic GBR\data - MIP\age_gender
-09:49:15 2. folder: D:\3. Demo\2. Maps\Precisely\DynamicDemographic GBR\data - MIP\boundaries
-09:49:15 3. folder: D:\3. Demo\2. Maps\Precisely\DynamicDemographic GBR\data - MIP\consumer_styles
-09:49:15 4. folder: D:\3. Demo\2. Maps\Precisely\DynamicDemographic GBR\data - MIP\origin_destination
-09:49:15 5. folder: D:\3. Demo\2. Maps\Precisely\DynamicDemographic GBR\data - MIP\purchasing_power
-09:49:15 Looking for: age_gender
-09:49:15 Found: age_gender
-09:49:15 Looking for: purchasing_power
-09:49:15 Found: purchasing_power
-09:49:15 Looking for: purchasing_power
-09:49:15 Found: purchasing_power
-09:49:30 1. folder: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_AUS\DynamicDemographics_o3_sample_AUS_202203_TXT\data\age_gender
-09:49:30 2. folder: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_AUS\DynamicDemographics_o3_sample_AUS_202203_TXT\data\boundaries
-09:49:30 3. folder: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_AUS\DynamicDemographics_o3_sample_AUS_202203_TXT\data\consumer_spend_potential
-09:49:30 4. folder: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_AUS\DynamicDemographics_o3_sample_AUS_202203_TXT\data\household_income
-09:49:30 5. folder: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_AUS\DynamicDemographics_o3_sample_AUS_202203_TXT\data\origin_destination
-09:49:30 6. folder: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_AUS\DynamicDemographics_o3_sample_AUS_202203_TXT\data\profession
-09:49:30 Looking for: age_gender
-09:49:30 Found: age_gender
-09:49:30 Looking for: purchasing_power
-09:49:30 Looking for: purchasing_power
-10:00:16 1. folder: D:\3. Demo\2. Maps\Precisely\DynamicDemographic GBR\data - MIP\age_gender
-10:00:16 2. folder: D:\3. Demo\2. Maps\Precisely\DynamicDemographic GBR\data - MIP\boundaries
-10:00:16 3. folder: D:\3. Demo\2. Maps\Precisely\DynamicDemographic GBR\data - MIP\consumer_styles
-10:00:16 4. folder: D:\3. Demo\2. Maps\Precisely\DynamicDemographic GBR\data - MIP\origin_destination
-10:00:16 5. folder: D:\3. Demo\2. Maps\Precisely\DynamicDemographic GBR\data - MIP\purchasing_power
-10:00:16 Looking for: age_gender
-10:00:16 Found: age_gender
-10:00:16 Looking for: purchasing_power
-10:00:16 Found: purchasing_power
-10:00:16 Looking for: purchasing_power
-10:00:16 Found: purchasing_power
-10:00:16 Looking for: consumer_spend_potential
-10:00:16 Looking for: household_income
-10:00:17 Looking for: profession
-10:00:35 1. folder: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_AUS\DynamicDemographics_o3_sample_AUS_202203_TXT\data\age_gender
-10:00:35 2. folder: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_AUS\DynamicDemographics_o3_sample_AUS_202203_TXT\data\boundaries
-10:00:35 3. folder: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_AUS\DynamicDemographics_o3_sample_AUS_202203_TXT\data\consumer_spend_potential
-10:00:35 4. folder: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_AUS\DynamicDemographics_o3_sample_AUS_202203_TXT\data\household_income
-10:00:35 5. folder: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_AUS\DynamicDemographics_o3_sample_AUS_202203_TXT\data\origin_destination
-10:00:35 6. folder: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_AUS\DynamicDemographics_o3_sample_AUS_202203_TXT\data\profession
-10:00:35 Looking for: age_gender
-10:00:36 Found: age_gender
-10:00:36 Looking for: purchasing_power
-10:00:36 Looking for: purchasing_power
-10:00:36 Looking for: consumer_spend_potential
-10:00:36 Found: consumer_spend_potential
-10:00:36 Looking for: household_income
-10:00:36 Found: household_income
-10:00:36 Looking for: profession
-10:00:36 Found: profession
-10:00:46 You click daypart 2 Afternoon, 12:00-17:59
-10:02:38 DDCGetBoundaryFileName: No Files found matching the mask '*age_gender_Aft_*.tab' where found in this folder: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_AUS\DynamicDemographics_o3_sample_AUS_202203_TXT\data\age_gender\Pivoted\
-10:02:40 DDCGetBoundaryFileName: No Files found matching the mask '*age_gender_Aft_*.tab' where found in this folder: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_AUS\DynamicDemographics_o3_sample_AUS_202203_TXT\data\age_gender\Pivoted\
-10:02:42 DDCGetOrigin2DestFileName: No Files found matching the mask '*origin_destination_Aft_*.tab' where found in this folder: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_AUS\DynamicDemographics_o3_sample_AUS_202203_TXT\data\origin_destination\Pivoted\
+09:46:16 Select * From dd_sa1_age_gender_mor_aus_p, dd_sa1_origin_destination_mor_ Where dd_sa1_age_gender_mor_aus_p.Dest_Area_ID = dd_sa1_origin_destination_mor_.Origin_Area_ID And dd_sa1_origin_destination_mor_.Dest_Area_ID = "1143841" And OBJ Into Origs_DD NoSelect
+09:46:17 13 Orig(s) found.
+09:46:17 Set Map Window 3073 Layer 1  Label Auto Off Auto Retry Off Line Arrow Pen (1, 2, 0) Position Center Right Offset 8 Font ("Precisely",0,10,0) Parallel Off Visibility On Overlap Off PartialSegments On Duplicates On Max 2147483647 LabelAlpha 255 AutoPosition Off AutoSizes 1 AutoSizeStep 2 SuppressIfNoFit Off AutoCallout Off
+09:46:17 Set Map Window 3073 Layer 1  Label With dest_area_id Abbreviation Off Abbreviate with area_id
+09:46:17 Set Map Window 3073 Layer 2  Label Auto On Auto Retry Off Pen (1, 2, 0) Position Center Offset 2 Font ("Precisely",257,12,0,16777215) Parallel On Visibility On Overlap Off PartialSegments Off Duplicates On Max 2147483647 LabelAlpha 255 AutoPosition Off AutoSizes 1 AutoSizeStep 50 SuppressIfNoFit On AutoCallout Off
+09:46:17 Set Map Window 3073 Layer 2  Label With IIF(EVE_WD_RANKD_H<11, EVE_WD_RANKD_H, "") Abbreviation Off Abbreviate with dest_area_id
+09:46:17 Set Map Window 3073 Layer 1  Label Auto Off Auto Retry Off Pen (1, 2, 0) Position Center Offset 2 Font ("Precisely",0,10,0) Parallel On Visibility On Overlap Off PartialSegments Off Duplicates On Max 2147483647 LabelAlpha 255 AutoPosition Off AutoSizes 1 AutoSizeStep 50 SuppressIfNoFit On AutoCallout Off
+09:46:17 Set Map Window 3073 Layer 1  Label With dest_area_id Abbreviation Off Abbreviate with dest_area_id
+09:46:17 Zooming to extent of layer 'Dest_2_Origs_DD'
+09:46:29 1 Dest(s) found using 1143838
+09:46:29 Select * From dd_sa1_age_gender_mor_aus_p, dd_sa1_origin_destination_mor_ Where dd_sa1_age_gender_mor_aus_p.Dest_Area_ID = dd_sa1_origin_destination_mor_.Origin_Area_ID And dd_sa1_origin_destination_mor_.Dest_Area_ID = "1143838" And OBJ Into Origs_DD NoSelect
+09:46:30 5 Orig(s) found.
+09:46:30 Set Map Window 3073 Layer 1  Label Auto Off Auto Retry Off Line Arrow Pen (1, 2, 0) Position Center Right Offset 8 Font ("Precisely",0,10,0) Parallel Off Visibility On Overlap Off PartialSegments On Duplicates On Max 2147483647 LabelAlpha 255 AutoPosition Off AutoSizes 1 AutoSizeStep 2 SuppressIfNoFit Off AutoCallout Off
+09:46:30 Set Map Window 3073 Layer 1  Label With dest_area_id Abbreviation Off Abbreviate with area_id
+09:46:30 Set Map Window 3073 Layer 2  Label Auto On Auto Retry Off Pen (1, 2, 0) Position Center Offset 2 Font ("Precisely",257,12,0,16777215) Parallel On Visibility On Overlap Off PartialSegments Off Duplicates On Max 2147483647 LabelAlpha 255 AutoPosition Off AutoSizes 1 AutoSizeStep 50 SuppressIfNoFit On AutoCallout Off
+09:46:30 Set Map Window 3073 Layer 2  Label With IIF(EVE_WD_RANKD_H<11, EVE_WD_RANKD_H, "") Abbreviation Off Abbreviate with dest_area_id
+09:46:30 Set Map Window 3073 Layer 1  Label Auto Off Auto Retry Off Pen (1, 2, 0) Position Center Offset 2 Font ("Precisely",0,10,0) Parallel On Visibility On Overlap Off PartialSegments Off Duplicates On Max 2147483647 LabelAlpha 255 AutoPosition Off AutoSizes 1 AutoSizeStep 50 SuppressIfNoFit On AutoCallout Off
+09:46:30 Set Map Window 3073 Layer 1  Label With dest_area_id Abbreviation Off Abbreviate with dest_area_id
+09:46:30 Zooming to extent of layer 'Dest_2_Origs_DD'

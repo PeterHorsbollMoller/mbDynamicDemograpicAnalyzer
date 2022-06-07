@@ -1,0 +1,716 @@
+﻿'*******************************************************************************
+'** 	Created By Peter Horsbøll Møller, Precisely
+'** 	Program:
+'** 	Modul:
+'**
+'*******************************************************************************
+
+'-------------------------------------
+Include "MapBasic.def"
+Include "Icons.def"
+Include "Menu.def"
+'**default constants...
+Include "Library\Defaults.def"
+
+'-------------------------------------
+Include "Library\ARRAYLib.def"
+Include "Library\DEBUGLib.def"
+Include "Library\ERRORLib.def"
+Include "Library\FILELib.def"
+Include "Library\RIBBONLib.def"
+Include "Library\TABLELib.def"
+
+Include "DDFunctions.def"
+
+'**********************************************************************************************''
+Function DDFGetBoundaryFileName(	  ByVal sMainFolder As String
+							, ByVal bPivoted As Logical
+							, ByVal nDatatype As Integer
+							, ByVal nDaypart As Integer
+							, ByVal nBoundaryType As Integer
+							, ByVal sFileType As String	'"TAB", "TXT"
+							) As String
+
+Dim	sPath, sMask, sFile, sBoundaryType As String,
+	nNumFiles As Integer
+
+OnError GoTo ErrorOccured
+
+DDFGetBoundaryFileName = ""
+
+	sPath 		= FILEAddBackSlash(DDFGetDataTypeFolderPath(sMainFolder, bPivoted, nDataType, nBoundaryType))
+	sBoundaryType	= DDFGetBoundaryShortName(nBoundaryType)
+
+	Do Case nDataType
+		Case DD_DATATYPE_AGE_GENDER
+			sMask	= "*" & sBoundaryType & "_age_gender*" & DDFGetDaypartShortName(nDaypart) & "_*." & sFileType
+		Case DD_DATATYPE_PP_HOUSEHOLD
+			sMask	= "*" & sBoundaryType & "_purchasing_power_hhold*" & DDFGetDaypartShortName(nDaypart) & "_*." & sFileType
+		Case DD_DATATYPE_PP_INHABITANT
+			sMask	= "*" & sBoundaryType & "_purchasing_power_inh*" & DDFGetDaypartShortName(nDaypart) & "*." & sFileType
+		Case DD_DATATYPE_CS_POTENTIAL
+			sMask	= "*" & sBoundaryType & "_spend*" & DDFGetDaypartShortName(nDaypart) & "*." & sFileType
+		Case DD_DATATYPE_HOUSEHOLD_INCOME
+			sMask	= "*" & sBoundaryType & "_hh_income*" & DDFGetDaypartShortName(nDaypart) & "*." & sFileType
+		Case DD_DATATYPE_PROFESSION
+			sMask	= "*" & sBoundaryType & "_profession*" & DDFGetDaypartShortName(nDaypart) & "*." & sFileType
+
+		Case DD_DATATYPE_ORIG_2_DESTINATION
+			sMask	= "*" & sBoundaryType & "_origin_destination*" & DDFGetDaypartShortName(nDaypart) & "*." & sFileType
+		Case DD_DATATYPE_BOUNDARIES
+			sMask	= "*" & "dd_*" & sBoundaryType & "*." & sFileType
+	End Case
+
+'	Call DEBUGPrint("   Mask: " & sMask)
+	nNumFiles = FILEFindFilesInFolder(sPath, sMask)
+	Do Case nNumFiles
+		Case 0
+			Call RBNNotificationShow("Dynamic Demographic Analyzer", "No files matching the mask '" & sMask & "' where found in this folder: " & sPath, Notify_Warning, 10000)
+			Exit Function
+		Case 1
+			sFile = FILEGetFindFilesFileName(1)
+		Case Else
+			sFile = FILEGetFindFilesFileName(1)
+			Call RBNNotificationShow("Dynamic Demographic Analyzer", "Multiple files found matching this mask '" & sMask & "'. Using the first!", Notify_Warning, 10000)
+	End Case
+
+	DDFGetBoundaryFileName = sFile
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDFGetBoundaryFileName")
+
+End Function
+
+'**********************************************************************************************''
+Function DDFGetOrigin2DestFileName(  ByVal sMainFolder As String
+							, ByVal bPivoted As Logical
+							, ByVal nDatatype As Integer
+							, ByVal nDaypart As Integer
+							, ByVal nBoundaryType As Integer
+							, ByVal sFileType As String		'"TAB", "TXT"
+							) As String
+
+Dim	sPath, sMask, sFile, sBoundaryType As String,
+	nNumFiles As Integer
+
+OnError GoTo ErrorOccured
+
+DDFGetOrigin2DestFileName = ""
+
+	sPath		= FILEAddBackSlash(DDFGetDataTypeFolderPath(sMainFolder, bPivoted, nDataType, sBoundaryType))
+	sBoundaryType	= DDFGetBoundaryShortName(nBoundaryType)
+
+	sMask	= "*" & sBoundaryType & "_origin_destination*" & DDFGetDaypartShortName(nDaypart) & "_*." & sFileType
+
+'	Call DEBUGPrint("DDFGetOrigin2DestFileName: " & sMask)
+	nNumFiles = FILEFindFilesInFolder(sPath, sMask)
+	Do Case nNumFiles
+		Case 0
+			Call RBNNotificationShow("Dynamic Demographic Analyzer", "No files matching the mask '" & sMask & "' where found in this folder: " & sPath, Notify_Warning, 10000)
+			Call DEBUGPrint("DDFGetOrigin2DestFileName: No Files found matching the mask '" & sMask & "' where found in this folder: " & sPath)
+			Exit Function
+		Case 1
+			sFile = FILEGetFindFilesFileName(1)
+'			Call DEBUGPrint("DDFGetOrigin2DestFileName: File found: " & sFile)
+		Case Else
+			sFile = FILEGetFindFilesFileName(1)
+'			Call DEBUGPrint("DDFGetOrigin2DestFileName: Multiple files found matching this mask '" & sMask & "'. Using the first! File found: " & sFile)
+			Call RBNNotificationShow("Dynamic Demographic Analyzer", "Multiple files found matching this mask '" & sMask & "'. Using the first!", Notify_Warning, 10000)
+	End Case
+
+	DDFGetOrigin2DestFileName = sFile
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDFGetOrigin2DestFileName")
+
+End Function
+
+'**********************************************************************************************''
+Function DDFGetDaypartDescription(ByVal nDaypart As Integer) As String
+
+OnError GoTo ErrorOccured
+
+	Do Case nDaypart
+		Case DD_DAYPART_MORNING		'1
+			DDFGetDaypartDescription 	= "Morning, 06:00-11:59"
+		Case DD_DAYPART_AFTERNOON 	'2
+			DDFGetDaypartDescription 	= "Afternoon, 12:00-17:59"
+		Case DD_DAYPART_EVENING		'3
+			DDFGetDaypartDescription 	= "Evening, 18:00-20:59"
+		Case DD_DAYPART_NIGHT		'4
+			DDFGetDaypartDescription 	= "Night, 21:00-05:59"
+	End Case
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDFGetDaypartDescription")
+
+End Function
+'**********************************************************************************************''
+Function DDFGetDaypartShortName(ByVal nDaypart As Integer) As String
+
+OnError GoTo ErrorOccured
+
+	Do Case nDaypart
+		Case DD_DAYPART_MORNING		'1
+			DDFGetDaypartShortName 	= "Mor"
+		Case DD_DAYPART_AFTERNOON 	'2
+			DDFGetDaypartShortName 	= "Aft"
+		Case DD_DAYPART_EVENING		'3
+			DDFGetDaypartShortName 	= "Eve"
+		Case DD_DAYPART_NIGHT		'4
+			DDFGetDaypartShortName 	= "Ngt"
+		Case Else
+			DDFGetDaypartShortName = ""	'No daypart specified
+	End Case
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDFGetDaypartShortName")
+
+End Function
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
+Function DDFGetDaypartDescriptions(arrDayparts() As String) As Integer
+
+Dim	nDaypart As Integer
+
+OnError GoTo ErrorOccured
+
+	ReDim arrDayparts(0)
+	For nDaypart = 1 To DD_NUM_DAYPARTS
+		Call ARRAYAddValueString(arrDayparts(), DDFGetDaypartDescription(nDaypart))
+	Next
+
+	DDFGetDaypartDescriptions = Ubound(arrDayparts)
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDFGetDaypartDescriptions")
+	Call ERRShow()
+
+End Function
+
+'**********************************************************************************************''
+Function DDFGetDataTypeDescription(ByVal nDataType As Integer) As String
+
+OnError GoTo ErrorOccured
+
+	Do Case nDataType
+		Case DD_DATATYPE_AGE_GENDER
+			DDFGetDataTypeDescription = "Age by Gender"
+		Case DD_DATATYPE_PP_HOUSEHOLD
+			DDFGetDataTypeDescription = "Purchasing Power by Household"
+		Case DD_DATATYPE_PP_INHABITANT
+			DDFGetDataTypeDescription = "Purchasing Power by Inhabitants"
+		Case DD_DATATYPE_CS_POTENTIAL
+			DDFGetDataTypeDescription = "Potential Consumer Spend"
+		Case DD_DATATYPE_HOUSEHOLD_INCOME
+			DDFGetDataTypeDescription = "Household Income"
+		Case DD_DATATYPE_PROFESSION
+			DDFGetDataTypeDescription = "Profession"
+
+		Case DD_DATATYPE_ORIG_2_DESTINATION
+			DDFGetDataTypeDescription = "Origin to Destination"
+		Case DD_DATATYPE_BOUNDARIES
+			DDFGetDataTypeDescription = "Boundaries"
+
+	End Case
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDFGetDataTypeDescription")
+
+End Function
+
+'**********************************************************************************************''
+Function DDFGetDataTypeShortName(ByVal nDataType As Integer) As String
+
+OnError GoTo ErrorOccured
+
+	Do Case nDataType
+		Case DD_DATATYPE_AGE_GENDER
+			DDFGetDataTypeShortName = "AgeByGender"
+		Case DD_DATATYPE_PP_HOUSEHOLD
+			DDFGetDataTypeShortName = "PPByHH"
+		Case DD_DATATYPE_PP_INHABITANT
+			DDFGetDataTypeShortName = "PPByInh"
+		Case DD_DATATYPE_CS_POTENTIAL
+			DDFGetDataTypeShortName = "CSPotent"
+		Case DD_DATATYPE_HOUSEHOLD_INCOME
+			DDFGetDataTypeShortName = "HHIncome"
+		Case DD_DATATYPE_PROFESSION
+			DDFGetDataTypeShortName = "Prof"
+
+		Case DD_DATATYPE_ORIG_2_DESTINATION
+			DDFGetDataTypeShortName = "Orig2Dest"
+		Case DD_DATATYPE_BOUNDARIES
+			DDFGetDataTypeShortName = "Boundaries"
+	End Case
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDFGetDataTypeShortName")
+
+End Function
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
+Function DDFGetDataTypes(  ByVal sMainFolder As String
+					, arrDatatypes() As Integer
+					, arrDatatypeDescriptions() As String
+					) As Integer
+
+Dim	nDataType, nFolder, nNumFolders As Integer,
+	arrSubFolders() As String
+
+OnError GoTo ErrorOccured
+
+DDFGetDataTypes = 0
+
+	nNumFolders = FILEFindFoldersInFolder(sMainFolder, "*")
+	If nNumFolders = 0 Then
+		Call DEBUGPrint("Please select a folder with at least one sub folder!: " & sMainFolder)
+		Exit Sub
+	End If
+	ReDim arrSubFolders(0)
+	For nFolder = 1 To nNumFolders
+'		Call DEBUGPrint(nFolder & ". folder: " & FILEGetFindFoldersFolderName(nFolder))
+		Call ARRAYAddValueString(arrSubFolders, FILEGetFindFoldersFolderName(nFolder))
+	Next
+
+'	Call DEBUGPrint("Folders: " & Chr$(10) & ARRAYToSeparatedTextString(arrSubFolders(), Chr$(10)))
+
+	ReDim arrDatatypeDescriptions(0)
+	ReDim arrDatatypes(0)
+
+	For nDataType = 1 To DD_NUM_DATATYPES
+'		Call DEBUGPrint("Looking for: " & DDFGetDataTypeFolderName(nDataType))
+		For nFolder = 1 To Ubound(arrSubFolders)
+			If InStr(1, arrSubFolders(nFolder), DDFGetDataTypeFolderName(nDataType)) Then
+'				Call DEBUGPrint("   Found: " & DDFGetDataTypeFolderName(nDataType))
+				Call ARRAYAddValueString(arrDatatypeDescriptions(), DDFGetDataTypeDescription(nDataType))
+				Call ARRAYAddValueInteger(arrDatatypes(), nDataType)
+				Exit For
+			End If
+		Next
+	Next
+
+	DDFGetDataTypes = Ubound(arrDatatypes())
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDFGetDataTypes")
+	Call ERRShow()
+
+End Function
+
+'**********************************************************************************************''
+Function DDFGetDataTypeFolderName( ByVal nDataType As Integer) As String
+
+OnError GoTo ErrorOccured
+
+	Do Case nDataType
+		Case DD_DATATYPE_AGE_GENDER			'1
+			DDFGetDataTypeFolderName = "age_gender"
+		Case DD_DATATYPE_PP_HOUSEHOLD			'2
+			DDFGetDataTypeFolderName = "purchasing_power"
+		Case DD_DATATYPE_PP_INHABITANT		'3
+			DDFGetDataTypeFolderName = "purchasing_power"
+		Case DD_DATATYPE_CS_POTENTIAL
+			DDFGetDataTypeFolderName = "consumer_spend_potential"
+		Case DD_DATATYPE_HOUSEHOLD_INCOME
+			DDFGetDataTypeFolderName = "household_income"
+		Case DD_DATATYPE_PROFESSION
+			DDFGetDataTypeFolderName = "profession"
+
+		Case DD_DATATYPE_ORIG_2_DESTINATION
+			DDFGetDataTypeFolderName = "origin_destination"
+		Case DD_DATATYPE_BOUNDARIES
+			DDFGetDataTypeFolderName = "boundaries"
+	End Case
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDFGetDataTypeFolder")
+
+End Function
+
+
+'**********************************************************************************************''
+Function DDFGetDataTypeFolderPath(	  ByVal sMainFolder As String
+							, ByVal bPivoted As Logical
+							, ByVal nDataType As Integer
+							, ByVal nBoundaryType As Integer
+							) As String
+
+Dim	sFolder As String
+
+OnError GoTo ErrorOccured
+
+	sFolder = DDFGetDataTypeFolderName(nDataType)
+
+	If not nDataType In (DD_DATATYPE_BOUNDARIES) Then
+		If bPivoted Then
+			sFolder = FILEAddBackSlash(sFolder) & "Pivoted"
+		Else
+			sFolder = FILEAddBackSlash(sFolder) & "Unpivoted"
+		End If
+	End If
+
+	If nDataType In (DD_DATATYPE_BOUNDARIES) Then
+		If nBoundaryType <> DD_BOUNDARY_UNDEFINED Then
+			sFolder = FILEAddBackSlash(sFolder) & DDFGetBoundaryFolderName(nBoundaryType)
+		End If
+	End If
+
+	sFolder = FILEAddBackSlash(FILEAddBackSlash(sMainFolder) & sFolder)
+'	Call DEBUGPrint("DDFGetDataTypeFolderPath: " & DDFGetBoundaryShortName(nBoundaryType) & "-" & DDFGetDataTypeShortName(nDatatype) & ": " & sFolder)
+	DDFGetDataTypeFolderPath = sFolder
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDFGetDataTypeFolderPath")
+
+End Function
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
+Function DDFGetBoundaryDescription(ByVal nBoundaryType As Integer) As String
+
+OnError GoTo ErrorOccured
+
+DDFGetBoundaryDescription = ""
+
+	Do Case nBoundaryType
+		Case DD_BOUNDARY_UNDEFINED
+			DDFGetBoundaryDescription = "Not specified"
+		Case DD_BOUNDARY_HEX_H3_L9
+			DDFGetBoundaryDescription = "Uber H3 Hexagon Level 9 (HEX)"
+		Case DD_BOUNDARY_SA1
+			DDFGetBoundaryDescription = "Statistical Areas 1 (SA1)"
+		Case DD_BOUNDARY_OA
+			DDFGetBoundaryDescription = "Output Areas (OA)"
+		Case DD_BOUNDARY_ERG
+			DDFGetBoundaryDescription = "EEA Reference Grid 1 km (ERG)"
+	End Case
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDFGetBoundaryDescription")
+	Call ERRShow()
+
+End Function
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
+Function DDFGetBoundaryShortName(ByVal nBoundaryType As Integer) As String
+
+DDFGetBoundaryShortName = ""
+
+	Do Case nBoundaryType
+		Case DD_BOUNDARY_UNDEFINED
+			DDFGetBoundaryShortName = ""
+		Case DD_BOUNDARY_HEX_H3_L9
+			DDFGetBoundaryShortName = "hex"
+		Case DD_BOUNDARY_SA1
+			DDFGetBoundaryShortName = "sa1"
+		Case DD_BOUNDARY_OA
+			DDFGetBoundaryShortName = "oa"
+		Case DD_BOUNDARY_ERG
+			DDFGetBoundaryShortName = "erg"
+	End Case
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDFGetBoundaryShortName")
+	Call ERRShow()
+
+End Function
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
+Function DDFGetBoundaryTypes(	  ByVal sMainFolder As String
+						, arrBoundaryTypes() As Integer
+						, arrBoundaryDescriptions() As String
+						) As Integer
+
+Dim	nBoundary, nFolder, nNumFolders As Integer,
+	sPath, arrSubFolders() As String
+
+OnError GoTo ErrorOccured
+
+DDFGetBoundaryTypes = 0
+
+	sPath = DDFGetDataTypeFolderPath(sMainFolder, TRUE, DD_DATATYPE_BOUNDARIES, DD_BOUNDARY_UNDEFINED)
+	nNumFolders = FILEFindFoldersInFolder(sPath, "*")
+	If nNumFolders = 0 Then
+		Call DEBUGPrint("Please select a folder with at least one sub folder!: " & sPath)
+		Exit Sub
+	End If
+	ReDim arrSubFolders(0)
+	For nFolder = 1 To nNumFolders
+'		Call DEBUGPrint(nFolder & ". folder: " & FILEGetFindFoldersFolderName(nFolder))
+		Call ARRAYAddValueString(arrSubFolders, FILEGetFindFoldersFolderName(nFolder))
+	Next
+
+'	Call DEBUGPrint("Folders: " & Chr$(10) & ARRAYToSeparatedTextString(arrSubFolders(), Chr$(10)))
+
+	ReDim arrBoundaryDescriptions(0)
+	ReDim arrBoundaryTypes(0)
+
+	For nBoundary = 1 To DD_NUM_BOUNDARY_TYPES
+'		Call DEBUGPrint("Looking for: " & DDFGetBoundaryFolderName(nBoundary))
+		For nFolder = 1 To Ubound(arrSubFolders)
+			If InStr(1, arrSubFolders(nFolder), DDFGetBoundaryFolderName(nBoundary)) Then
+'				Call DEBUGPrint("   Found: " & DDFGetBoundaryFolderName(nBoundary))
+				Call ARRAYAddValueString(arrBoundaryDescriptions(), DDFGetBoundaryDescription(nBoundary))
+				Call ARRAYAddValueInteger(arrBoundaryTypes(), nBoundary)
+				Exit For
+			End If
+		Next
+	Next
+
+	DDFGetBoundaryTypes = Ubound(arrBoundaryTypes)
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDFGetBoundaryTypes")
+	Call ERRShow()
+
+End Function
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
+Function DDFGetBoundaryTypesAll(	  arrBoundaryDescriptions() As String
+							) As Integer
+
+Dim	nBoundary As Integer
+
+OnError GoTo ErrorOccured
+
+DDFGetBoundaryTypesAll = 0
+
+	ReDim arrBoundaryDescriptions(0)
+
+	For nBoundary = 1 To DD_NUM_BOUNDARY_TYPES
+		Call ARRAYAddValueString(arrBoundaryDescriptions(), DDFGetBoundaryDescription(nBoundary))
+	Next
+
+	DDFGetBoundaryTypesAll = Ubound(arrBoundaryDescriptions)
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDFGetBoundaryTypesAll")
+	Call ERRShow()
+
+End Function
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
+Function DDFGetBoundaryFolderName( ByVal nBoundaryType As Integer) As String
+
+OnError GoTo ErrorOccured
+
+DDFGetBoundaryFolderName = ""
+
+	Do Case nBoundaryType
+		Case DD_BOUNDARY_HEX_H3_L9
+			DDFGetBoundaryFolderName = "hex"
+		Case DD_BOUNDARY_SA1
+			DDFGetBoundaryFolderName = "sa1"
+		Case DD_BOUNDARY_OA
+			DDFGetBoundaryFolderName = "oa"
+		Case DD_BOUNDARY_ERG
+			DDFGetBoundaryFolderName = "erg"
+	End Case
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDFGetBoundaryFolderName")
+	Call ERRShow()
+
+End Function
+
+'**********************************************************************************************''
+Function DDFIsDataTypeSplitByDaypart(ByVal nDatatype As Integer) As Logical
+
+OnError GoTo ErrorOccured
+
+	Do Case nDataType
+		Case DD_DATATYPE_AGE_GENDER
+			DDFIsDataTypeSplitByDaypart = TRUE		'Checked
+		Case DD_DATATYPE_PP_HOUSEHOLD
+			DDFIsDataTypeSplitByDaypart = TRUE		'Checked
+		Case DD_DATATYPE_PP_INHABITANT
+			DDFIsDataTypeSplitByDaypart = TRUE		'Checked
+		Case DD_DATATYPE_CS_POTENTIAL
+			DDFIsDataTypeSplitByDaypart = FALSE	'Checked
+		Case DD_DATATYPE_HOUSEHOLD_INCOME
+			DDFIsDataTypeSplitByDaypart = FALSE	'Checked
+		Case DD_DATATYPE_PROFESSION
+			DDFIsDataTypeSplitByDaypart = FALSE	'Checked
+		Case DD_DATATYPE_CONSUMER_STYLES
+			DDFIsDataTypeSplitByDaypart = FALSE	'Checked
+
+		Case DD_DATATYPE_ORIG_2_DESTINATION
+			DDFIsDataTypeSplitByDaypart = TRUE		'Checked
+		Case DD_DATATYPE_BOUNDARIES
+			DDFIsDataTypeSplitByDaypart = FALSE	'Checked
+	End Case
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDFIsDataTypeSplitByDaypart")
+
+End Function
+
+'**********************************************************************************************''
+Function DDFIsDataTypePivoted(ByVal nDatatype As Integer) As Logical
+
+OnError GoTo ErrorOccured
+
+	Do Case nDataType
+		Case DD_DATATYPE_AGE_GENDER
+			DDFIsDataTypePivoted = TRUE	'Checked
+		Case DD_DATATYPE_PP_HOUSEHOLD
+			DDFIsDataTypePivoted = TRUE	'Checked
+		Case DD_DATATYPE_PP_INHABITANT
+			DDFIsDataTypePivoted = TRUE	'Checked
+		Case DD_DATATYPE_CS_POTENTIAL
+			DDFIsDataTypePivoted = TRUE	'Checked
+		Case DD_DATATYPE_HOUSEHOLD_INCOME
+			DDFIsDataTypePivoted = TRUE	'Checked
+		Case DD_DATATYPE_PROFESSION
+			DDFIsDataTypePivoted = TRUE	'Checked
+		Case DD_DATATYPE_CONSUMER_STYLES
+			DDFIsDataTypePivoted = TRUE	'Checked
+
+		Case DD_DATATYPE_ORIG_2_DESTINATION
+			DDFIsDataTypePivoted = TRUE	'Checked
+		Case DD_DATATYPE_BOUNDARIES
+			DDFIsDataTypePivoted = FALSE	'Checked
+	End Case
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDFIsDataTypeSplitByDaypart")
+
+End Function
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
+Function DDFGetLayerTypeFromLayerName(ByVal sLayerName As String) As String
+
+Dim	sType As String
+
+OnError GoTo ErrorOccured
+
+DDFGetLayerTypeFromLayerName = ""
+
+'	sTo/sFrom = "Orig"
+'	sTo/sFrom = "Dest"
+'	sTo & "_DD"
+'	sFrom & "s_DD"
+'	sFrom & "s_Home_DD"
+'	sFrom & "s_Work_DD"
+'	sTo & "_2_" & sFrom & "s_DD"
+'	sTo & "_2_" & sFrom & "s_Home_DD"
+'	sTo & "_2_" & sFrom & "s_WORK_DD"
+
+	sType = "Orig_2_Dest"
+	If Left$(sLayerName, Len(sType)) = sType Then
+		DDFGetLayerTypeFromLayerName = sType
+		Exit Function
+	End If
+	sType = "Dest_2_Orig"
+	If Left$(sLayerName, Len(sType)) = sType Then
+		DDFGetLayerTypeFromLayerName = sType
+		Exit Function
+	End If
+	sType = "Origs"
+	If Left$(sLayerName, Len(sType)) = sType Then
+		DDFGetLayerTypeFromLayerName = sType
+		Exit Function
+	End If
+	sType = "Dests"
+	If Left$(sLayerName, Len(sType)) = sType Then
+		DDFGetLayerTypeFromLayerName = sType
+		Exit Function
+	End If
+	sType = "Orig"
+	If Left$(sLayerName, Len(sType)) = sType Then
+		DDFGetLayerTypeFromLayerName = sType
+		Exit Function
+	End If
+	sType = "Dest"
+	If Left$(sLayerName, Len(sType)) = sType Then
+		DDFGetLayerTypeFromLayerName = sType
+		Exit Function
+	End If
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDFGetLayerTypeFromLayerName")
+	Call ERRShow()
+
+End Function

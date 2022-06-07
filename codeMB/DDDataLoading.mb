@@ -1,0 +1,257 @@
+﻿'*******************************************************************************
+'** 	Created By Peter Horsbøll Møller, Precisely
+'** 	Program:
+'** 	Modul:
+'**
+'*******************************************************************************
+
+'-------------------------------------
+Include "MapBasic.def"
+Include "Icons.def"
+Include "Menu.def"
+'**default constants...
+Include "Library\Defaults.def"
+
+'-------------------------------------
+Include "Library\DEBUGLib.def"
+Include "Library\ERRORLib.def"
+Include "Library\TABLELib.def"
+Include "Library\Types\T_LAYER_SETTINGS.def"
+Include "Library\Types\T_LABEL_SETTINGS.def"
+
+Include "DDFunctions.def"
+Include "DDConfigDlg.def"
+Include "DDLoadDataDlg.def"
+Include "DDDataLoading.def"
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub DDDataLoading
+
+Dim	sTempFolder, sPath, sFile, sFileNoExt, sTable, sTabBoundary As String,
+	nFile, nDaypart, nDatatype, nBoundaryType As Integer
+
+OnError GoTo ErrorOccured
+
+	If NumTables() > 0 Then
+		If Ask("Close all tables to continue?", "Abort", "Close All") Then
+			Exit Sub
+		End If
+		Close All Interactive
+		If NumTables() > 0 Then
+			Exit Sub
+		End If
+	End If
+
+	If Not DDLoadDataDlg() Then
+		Exit Sub
+	End If
+
+	sTempFolder	= PathToDirectory$(TempFileName$(""))
+	nBoundaryType	= DDLDGetBoundaryType()
+
+	Call DEBUGPrint("-------------------------------------------")
+	Call DEBUGPrint("Data Path: " & DDCGetDDMainDataFolder())
+	Call DEBUGPrint("Boundary Type: " & DDFGetBoundaryDescription(nBoundaryType))
+	Call DEBUGPrint("Load Boundary File: " & IIf(DDLDLoadBoundaryFiles(), "YES", "NO"))
+	Call DEBUGPrint("Load Orig2Dest Files: " & IIf(DDLDLoadOrig2DestFiles(), "YES", "NO"))
+	Call DEBUGPrint("Number of Data Files to load: " & DDLDGetNumberOfDataFiles())
+	For nFile = 1 To DDLDGetNumberOfDataFiles()
+		nDatatype	= DDLDGetDataType(nFile)
+		Call DEBUGPrint("   " & nFile & ": " & nDatatype & " - " & DDFGetDataTypeDescription(nDatatype))
+	Next
+
+	'**B O U N D A R I E S
+	If DDLDLoadBoundaryFiles() Then
+		Call DEBUGPrint("-------------------------------------------")
+		'**"\boundaries\<boundary type>\"
+		sPath		= DDFGetDataTypeFolderPath(DDCGetDDMainDataFolder(), TRUE, DD_DATATYPE_BOUNDARIES, nBoundaryType)
+'		Call DEBUGPrint(DDCGetDataTypeDescription(DD_DATATYPE_BOUNDARIES) & ": Path '" & sPath & "'")
+		sFile		= DDFGetBoundaryFileName(DDCGetDDMainDataFolder(), TRUE, DD_DATATYPE_BOUNDARIES, 0, nBoundaryType, "TXT")
+		If sFile = "" Then
+			Note DDFGetDataTypeDescription(DD_DATATYPE_BOUNDARIES) & " not found! Data loading process aborted!"
+			Exit Sub
+		End If
+		sFileNoExt	= PathToFileName$(sFile)
+		sFileNoExt	= Left$(sFileNoExt, Len(sFileNoExt) - 4)
+		sTable		= PathToTableName$(sFile)
+
+		Call DEBUGPrint(DDFGetDataTypeDescription(DD_DATATYPE_BOUNDARIES) & ": Loading from '" & PathToFileName$(sFile) & "' into '" & sPath & sFileNoExt & ".tab'")
+
+		Register Table sFile
+			Type OGR
+			Table sTable
+			Driver "CSV"
+			Openoptions "AUTODETECT_TYPE=YES;KEEP_GEOM_COLUMNS=NO;GEOM_POSSIBLE_NAMES=geometry"
+			Cache On
+			Charset "WindowsLatin1"
+			Regionstyle Pen(1, 2, RED) Brush(1,BLACK,BLACK)
+			CoordSys Earth Projection 1, 104
+			Into sTempFolder & "_temp.tab"
+
+		Open Table sTempFolder & "_temp.tab"
+		Call DEBUGPrint("Commit Table _temp As " & sPath & sFileNoExt & ".tab Type NATIVEX")
+		Commit Table _temp As sPath & sFileNoExt & ".tab" Type NATIVEX
+		Close Table _temp
+		Open Table sPath & sFileNoExt & ".tab"
+		Create Index On sTable (AREA_ID)
+		Call DEBUGPrint("   Data loaded! '" & sTable & "' holds " & TableInfo(sTable, TAB_INFO_NROWS) & " records.")
+		Close Table sTable
+	End If
+
+	Call DEBUGPrint("-------------------------------------------")
+	Call DEBUGPrint(DDFGetDataTypeDescription(DD_DATATYPE_BOUNDARIES) & ": Opening... ")
+	sFile			= DDFGetBoundaryFileName(DDCGetDDMainDataFolder(), TRUE, DD_DATATYPE_BOUNDARIES, 0, nBoundaryType, "TAB")
+	sTabBoundary		= PathToTableName$(sFile)
+	If Not TABIsOpen(sTabBoundary) Then
+		Open Table sFile
+		If Not TABIsOpen(sTabBoundary) Then
+			sTabBoundary = ""
+			Note "Table with boundaries could not be opened. You will not be able to add boundaries to your data files. The data loading process stops now"
+			Exit Sub
+		End If
+	End If
+
+	'**O R I G I N    T O    D E S T I N A T I O N S
+	If DDLDLoadOrig2DestFiles() Then
+		Call DEBUGPrint("-------------------------------------------")
+		sPath		= DDFGetDataTypeFolderPath(DDCGetDDMainDataFolder(), TRUE, DD_DATATYPE_ORIG_2_DESTINATION, nBoundaryType)
+		For nDaypart = 1 To DD_NUM_DAYPARTS
+			sFile		= DDFGetBoundaryFileName(DDCGetDDMainDataFolder(), TRUE, DD_DATATYPE_ORIG_2_DESTINATION, nDaypart, nBoundaryType, "TXT")
+			If sFile <> "" Then
+				sFileNoExt	= PathToFileName$(sFile)
+				sFileNoExt	= Left$(sFileNoExt, Len(sFileNoExt) - 4)
+				sTable		= PathToTableName$(sFile)
+
+				Call DEBUGPrint(nDaypart & ": " & DDFGetDataTypeDescription(DD_DATATYPE_ORIG_2_DESTINATION) & ": Loading from '" & PathToFileName$(sFile) & "' into '" & sFileNoExt & ".tab'")
+
+				Register Table sFile
+					Type OGR
+					Table sTable
+					Driver "CSV"
+					Openoptions "AUTODETECT_TYPE=YES"
+					Cache On
+					Charset "WindowsLatin1"
+					Into sTempFolder & "_temp.tab"
+
+				Open Table sTempFolder & "_temp.tab"
+				Commit Table _temp As sTempFolder & "_tempNative.tab" Type NATIVEX
+				Close Table _temp
+				Open Table sTempFolder & "_tempNative.tab"
+				Call DEBUGPrint("   Data loaded! '" & sTable & "' holds " & TableInfo(_tempNative, TAB_INFO_NROWS) & " records.")
+
+				Select d.*
+					From sTabBoundary As "b", _tempNative As "d"
+					Where b.AREA_ID = d.DEST_AREA_ID
+					Into __JOINED NoSelect
+
+				Commit Table "__JOINED" As sPath & sFileNoExt & ".tab" Type NATIVEX
+				Close Table _tempNative
+				Open Table sPath & sFileNoExt & ".tab"
+
+				Create Index On sTable (DEST_AREA_ID)
+				Create Index On sTable (ORIGIN_AREA_ID)
+				Call DEBUGPrint("   Data joined with boundaries! '" & sTable & "' holds " & TableInfo(sTable, TAB_INFO_NROWS) & " records.")
+				Close Table sTable
+			Else
+				Print nDaypart & ": " & DDFGetDataTypeDescription(DD_DATATYPE_ORIG_2_DESTINATION) & ": File Not Found!"
+			End If
+		Next
+	End If
+
+	'**D A T A    F I L E S
+	For nFile = 1 To DDLDGetNumberOfDataFiles()
+		Call DEBUGPrint("-------------------------------------------")
+		nDatatype		= DDLDGetDataType(nFile)
+		sPath		= DDFGetDataTypeFolderPath(DDCGetDDMainDataFolder(), TRUE, nDatatype, nBoundaryType)
+		If DDFIsDataTypeSplitByDaypart(DDLDGetDataType(nFile)) Then
+			For nDaypart = 1 To DD_NUM_DAYPARTS
+				sFile		= DDFGetBoundaryFileName(DDCGetDDMainDataFolder(), TRUE, nDatatype, nDaypart, nBoundaryType, "TXT")
+				If sFile <> "" Then
+					sFileNoExt	= PathToFileName$(sFile)
+					sFileNoExt	= Left$(sFileNoExt, Len(sFileNoExt) - 4)
+					sTable		= PathToTableName$(sFile)
+
+					Call DEBUGPrint(nDaypart & ": " & DDFGetDataTypeDescription(nDatatype) & ": Loading from '" & PathToFileName$(sFile) & "' into '" & sFileNoExt & ".tab'")
+
+					Register Table sFile
+						Type OGR
+						Table sTable
+						Driver "CSV"
+						Openoptions "AUTODETECT_TYPE=YES"
+						Cache On
+						Charset "WindowsLatin1"
+						Into sTempFolder & "_temp.tab"
+
+					Open Table sTempFolder & "_temp.tab"
+					Commit Table _temp As sTempFolder & "_tempNative.tab" Type NATIVEX
+					Close Table _temp
+					Open Table sTempFolder & "_tempNative.tab"
+					Call DEBUGPrint("   Data loaded! '" & sTable & "' holds " & TableInfo(_tempNative, TAB_INFO_NROWS) & " records.")
+
+					Select d.*
+						From sTabBoundary As "b", _tempNative As "d"
+						Where b.AREA_ID = d.DEST_AREA_ID
+						Into __JOINED NoSelect
+
+					Commit Table "__JOINED" As sPath & sFileNoExt & ".tab" Type NATIVEX
+					Close Table _tempNative
+					Open Table sPath & sFileNoExt & ".tab"
+					Create Index On sTable (DEST_AREA_ID)
+					Call DEBUGPrint("   Data joined with boundaries! '" & sTable & "' holds " & TableInfo(sTable, TAB_INFO_NROWS) & " records.")
+					Close Table sTable
+				Else
+					Print nDaypart & ": " & DDFGetDataTypeDescription(nDatatype) & ": File Not Found!"
+				End If
+			Next
+		Else
+			nDaypart	= 0
+			sFile	= DDFGetBoundaryFileName(DDCGetDDMainDataFolder(), TRUE, nDatatype, nDaypart, nBoundaryType, "TXT")
+			If sFile <> "" Then
+				sFileNoExt	= PathToFileName$(sFile)
+				sFileNoExt	= Left$(sFileNoExt, Len(sFileNoExt) - 4)
+				sTable		= PathToTableName$(sFile)
+
+				Call DEBUGPrint(DDFGetDataTypeDescription(nDatatype) & ": Loading from '" & PathToFileName$(sFile) & "' into '" & sFileNoExt & ".tab'")
+
+				Register Table sFile
+					Type OGR
+					Table sTable
+					Driver "CSV"
+					Openoptions "AUTODETECT_TYPE=YES"
+					Cache On
+					Charset "WindowsLatin1"
+					Into sTempFolder & "_temp.tab"
+
+				Open Table sTempFolder & "_temp.tab"
+				Commit Table _temp As sTempFolder & "_tempNative.tab" Type NATIVEX
+				Close Table _temp
+				Open Table sTempFolder & "_tempNative.tab"
+				Call DEBUGPrint("   Data loaded! '" & sTable & "' holds " & TableInfo(_tempNative, TAB_INFO_NROWS) & " records.")
+
+				Select d.*
+					From sTabBoundary As "b", _tempNative As "d"
+					Where b.AREA_ID = d.DEST_AREA_ID
+					Into __JOINED NoSelect
+					Commit Table "__JOINED" As sPath & sFileNoExt & ".tab" Type NATIVEX
+				Close Table _tempNative
+				Open Table sPath & sFileNoExt & ".tab"
+				Create Index On sTable (DEST_AREA_ID)
+				Call DEBUGPrint("   Data joined with boundaries! '" & sTable & "' holds " & TableInfo(sTable, TAB_INFO_NROWS) & " records.")
+				Close Table sTable
+			Else
+				Print DDFGetDataTypeDescription(nDatatype) & ": File Not Found!"
+			End If
+		End If
+	Next	'nFile
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDDataLoading")
+	Call ERRShow()
+
+End Sub

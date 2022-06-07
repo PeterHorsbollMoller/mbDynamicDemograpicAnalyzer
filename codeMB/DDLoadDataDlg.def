@@ -1,0 +1,10 @@
+﻿
+Declare Function DDLoadDataDlg() As Logical
+
+Declare Function DDLDLoadBoundaryFiles() As Logical
+Declare Function DDLDLoadOrig2DestFiles() As Logical
+
+Declare Function DDLDGetNumberOfDataFiles() As Integer
+Declare Function DDLDGetDataType(ByVal nFile As Integer) As Integer
+
+Declare Function DDLDGetBoundaryType() As Integer

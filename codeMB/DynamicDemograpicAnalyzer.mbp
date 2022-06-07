@@ -20,4 +20,7 @@ Module=Library\STYLELib.mbo
 Module=Library\RIBBONLib.mbo
 Module=Library\TABLELib.mbo
 Module=DynDemoAnalyzerMENU.mbo
+Module=DDFunctions.mbo
 Module=DDConfigDlg.mbo
+Module=DDLoadDataDlg.mbo
+Module=DDDataLoading.mbo
