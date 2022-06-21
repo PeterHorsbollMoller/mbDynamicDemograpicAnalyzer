@@ -1,19 +1,7 @@
-09:46:16 Select * From dd_sa1_age_gender_mor_aus_p, dd_sa1_origin_destination_mor_ Where dd_sa1_age_gender_mor_aus_p.Dest_Area_ID = dd_sa1_origin_destination_mor_.Origin_Area_ID And dd_sa1_origin_destination_mor_.Dest_Area_ID = "1143841" And OBJ Into Origs_DD NoSelect
-09:46:17 13 Orig(s) found.
-09:46:17 Set Map Window 3073 Layer 1  Label Auto Off Auto Retry Off Line Arrow Pen (1, 2, 0) Position Center Right Offset 8 Font ("Precisely",0,10,0) Parallel Off Visibility On Overlap Off PartialSegments On Duplicates On Max 2147483647 LabelAlpha 255 AutoPosition Off AutoSizes 1 AutoSizeStep 2 SuppressIfNoFit Off AutoCallout Off
-09:46:17 Set Map Window 3073 Layer 1  Label With dest_area_id Abbreviation Off Abbreviate with area_id
-09:46:17 Set Map Window 3073 Layer 2  Label Auto On Auto Retry Off Pen (1, 2, 0) Position Center Offset 2 Font ("Precisely",257,12,0,16777215) Parallel On Visibility On Overlap Off PartialSegments Off Duplicates On Max 2147483647 LabelAlpha 255 AutoPosition Off AutoSizes 1 AutoSizeStep 50 SuppressIfNoFit On AutoCallout Off
-09:46:17 Set Map Window 3073 Layer 2  Label With IIF(EVE_WD_RANKD_H<11, EVE_WD_RANKD_H, "") Abbreviation Off Abbreviate with dest_area_id
-09:46:17 Set Map Window 3073 Layer 1  Label Auto Off Auto Retry Off Pen (1, 2, 0) Position Center Offset 2 Font ("Precisely",0,10,0) Parallel On Visibility On Overlap Off PartialSegments Off Duplicates On Max 2147483647 LabelAlpha 255 AutoPosition Off AutoSizes 1 AutoSizeStep 50 SuppressIfNoFit On AutoCallout Off
-09:46:17 Set Map Window 3073 Layer 1  Label With dest_area_id Abbreviation Off Abbreviate with dest_area_id
-09:46:17 Zooming to extent of layer 'Dest_2_Origs_DD'
-09:46:29 1 Dest(s) found using 1143838
-09:46:29 Select * From dd_sa1_age_gender_mor_aus_p, dd_sa1_origin_destination_mor_ Where dd_sa1_age_gender_mor_aus_p.Dest_Area_ID = dd_sa1_origin_destination_mor_.Origin_Area_ID And dd_sa1_origin_destination_mor_.Dest_Area_ID = "1143838" And OBJ Into Origs_DD NoSelect
-09:46:30 5 Orig(s) found.
-09:46:30 Set Map Window 3073 Layer 1  Label Auto Off Auto Retry Off Line Arrow Pen (1, 2, 0) Position Center Right Offset 8 Font ("Precisely",0,10,0) Parallel Off Visibility On Overlap Off PartialSegments On Duplicates On Max 2147483647 LabelAlpha 255 AutoPosition Off AutoSizes 1 AutoSizeStep 2 SuppressIfNoFit Off AutoCallout Off
-09:46:30 Set Map Window 3073 Layer 1  Label With dest_area_id Abbreviation Off Abbreviate with area_id
-09:46:30 Set Map Window 3073 Layer 2  Label Auto On Auto Retry Off Pen (1, 2, 0) Position Center Offset 2 Font ("Precisely",257,12,0,16777215) Parallel On Visibility On Overlap Off PartialSegments Off Duplicates On Max 2147483647 LabelAlpha 255 AutoPosition Off AutoSizes 1 AutoSizeStep 50 SuppressIfNoFit On AutoCallout Off
-09:46:30 Set Map Window 3073 Layer 2  Label With IIF(EVE_WD_RANKD_H<11, EVE_WD_RANKD_H, "") Abbreviation Off Abbreviate with dest_area_id
-09:46:30 Set Map Window 3073 Layer 1  Label Auto Off Auto Retry Off Pen (1, 2, 0) Position Center Offset 2 Font ("Precisely",0,10,0) Parallel On Visibility On Overlap Off PartialSegments Off Duplicates On Max 2147483647 LabelAlpha 255 AutoPosition Off AutoSizes 1 AutoSizeStep 50 SuppressIfNoFit On AutoCallout Off
-09:46:30 Set Map Window 3073 Layer 1  Label With dest_area_id Abbreviation Off Abbreviate with dest_area_id
-09:46:30 Zooming to extent of layer 'Dest_2_Origs_DD'
+14:42:36 DDFGetBoundaryFileName: No Files found matching the mask '*hex_age_gender*tot_*.TAB' where found in this folder: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_AUS_202203\data\age_gender\Pivoted\
+14:42:36 Boundary File: 
+14:42:36 Orig2Dest File: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_AUS_202203\data\origin_destination\Pivoted\dd_hex_origin_destination_tot_aus_p.TAB
+14:43:17 You click daypart 2 Afternoon, 12:00-17:59
+14:43:17 ---------------------------------------
+14:43:17 Boundary File: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_AUS_202203\data\age_gender\Pivoted\dd_hex_age_gender_aft_aus_p.TAB
+14:43:17 Orig2Dest File: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_AUS_202203\data\origin_destination\Pivoted\dd_hex_origin_destination_aft_aus_p.TAB

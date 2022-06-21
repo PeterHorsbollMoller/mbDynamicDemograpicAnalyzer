@@ -98,7 +98,7 @@ OnError GoTo ErrorOccured
 		Close Table _temp
 		Open Table sPath & sFileNoExt & ".tab"
 		Create Index On sTable (AREA_ID)
-		Call DEBUGPrint("   Data loaded! '" & sTable & "' holds " & TableInfo(sTable, TAB_INFO_NROWS) & " records.")
+		Call DEBUGPrint("   Data loaded! '" & sTable & "' holds " & FormatNumber$(TableInfo(sTable, TAB_INFO_NROWS)) & " records.")
 		Close Table sTable
 	End If
 
@@ -141,7 +141,7 @@ OnError GoTo ErrorOccured
 				Commit Table _temp As sTempFolder & "_tempNative.tab" Type NATIVEX
 				Close Table _temp
 				Open Table sTempFolder & "_tempNative.tab"
-				Call DEBUGPrint("   Data loaded! '" & sTable & "' holds " & TableInfo(_tempNative, TAB_INFO_NROWS) & " records.")
+				Call DEBUGPrint("   Data loaded! '" & sTable & "' holds " & FormatNumber$(TableInfo(_tempNative, TAB_INFO_NROWS)) & " records.")
 
 				Select d.*
 					From sTabBoundary As "b", _tempNative As "d"
@@ -154,7 +154,7 @@ OnError GoTo ErrorOccured
 
 				Create Index On sTable (DEST_AREA_ID)
 				Create Index On sTable (ORIGIN_AREA_ID)
-				Call DEBUGPrint("   Data joined with boundaries! '" & sTable & "' holds " & TableInfo(sTable, TAB_INFO_NROWS) & " records.")
+				Call DEBUGPrint("   Data joined with boundaries! '" & sTable & "' holds " & FormatNumber$(TableInfo(sTable, TAB_INFO_NROWS)) & " records.")
 				Close Table sTable
 			Else
 				Print nDaypart & ": " & DDFGetDataTypeDescription(DD_DATATYPE_ORIG_2_DESTINATION) & ": File Not Found!"
@@ -190,7 +190,7 @@ OnError GoTo ErrorOccured
 					Commit Table _temp As sTempFolder & "_tempNative.tab" Type NATIVEX
 					Close Table _temp
 					Open Table sTempFolder & "_tempNative.tab"
-					Call DEBUGPrint("   Data loaded! '" & sTable & "' holds " & TableInfo(_tempNative, TAB_INFO_NROWS) & " records.")
+					Call DEBUGPrint("   Data loaded! '" & sTable & "' holds " & FormatNumber$(TableInfo(_tempNative, TAB_INFO_NROWS)) & " records.")
 
 					Select d.*
 						From sTabBoundary As "b", _tempNative As "d"
@@ -201,7 +201,7 @@ OnError GoTo ErrorOccured
 					Close Table _tempNative
 					Open Table sPath & sFileNoExt & ".tab"
 					Create Index On sTable (DEST_AREA_ID)
-					Call DEBUGPrint("   Data joined with boundaries! '" & sTable & "' holds " & TableInfo(sTable, TAB_INFO_NROWS) & " records.")
+					Call DEBUGPrint("   Data joined with boundaries! '" & sTable & "' holds " & FormatNumber$(TableInfo(sTable, TAB_INFO_NROWS)) & " records.")
 					Close Table sTable
 				Else
 					Print nDaypart & ": " & DDFGetDataTypeDescription(nDatatype) & ": File Not Found!"
@@ -230,7 +230,7 @@ OnError GoTo ErrorOccured
 				Commit Table _temp As sTempFolder & "_tempNative.tab" Type NATIVEX
 				Close Table _temp
 				Open Table sTempFolder & "_tempNative.tab"
-				Call DEBUGPrint("   Data loaded! '" & sTable & "' holds " & TableInfo(_tempNative, TAB_INFO_NROWS) & " records.")
+				Call DEBUGPrint("   Data loaded! '" & sTable & "' holds " & FormatNumber$(TableInfo(_tempNative, TAB_INFO_NROWS)) & " records.")
 
 				Select d.*
 					From sTabBoundary As "b", _tempNative As "d"
@@ -240,7 +240,7 @@ OnError GoTo ErrorOccured
 				Close Table _tempNative
 				Open Table sPath & sFileNoExt & ".tab"
 				Create Index On sTable (DEST_AREA_ID)
-				Call DEBUGPrint("   Data joined with boundaries! '" & sTable & "' holds " & TableInfo(sTable, TAB_INFO_NROWS) & " records.")
+				Call DEBUGPrint("   Data joined with boundaries! '" & sTable & "' holds " & FormatNumber$(TableInfo(sTable, TAB_INFO_NROWS)) & " records.")
 				Close Table sTable
 			Else
 				Print DDFGetDataTypeDescription(nDatatype) & ": File Not Found!"

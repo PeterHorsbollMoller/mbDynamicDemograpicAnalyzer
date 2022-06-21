@@ -31,7 +31,7 @@ Function DDFGetBoundaryFileName(	  ByVal sMainFolder As String
 							, ByVal sFileType As String	'"TAB", "TXT"
 							) As String
 
-Dim	sPath, sMask, sFile, sBoundaryType As String,
+Dim	sPath, sMask, sFile, sBoundaryType, sDayPart As String,
 	nNumFiles As Integer
 
 OnError GoTo ErrorOccured
@@ -41,30 +41,38 @@ DDFGetBoundaryFileName = ""
 	sPath 		= FILEAddBackSlash(DDFGetDataTypeFolderPath(sMainFolder, bPivoted, nDataType, nBoundaryType))
 	sBoundaryType	= DDFGetBoundaryShortName(nBoundaryType)
 
+	If DDFIsDataTypeSplitByDaypart(nDataType) Then
+		sDayPart		= DDFGetDaypartShortName(nDaypart)
+		sDayPart		= IIf(sDayPart = "", "", sDayPart & "_*")
+	Else
+		sDayPart		= ""
+	End If
+
 	Do Case nDataType
 		Case DD_DATATYPE_AGE_GENDER
-			sMask	= "*" & sBoundaryType & "_age_gender*" & DDFGetDaypartShortName(nDaypart) & "_*." & sFileType
+			sMask	= "*" & sBoundaryType & "_age_gender*" & sDayPart & "." & sFileType
 		Case DD_DATATYPE_PP_HOUSEHOLD
-			sMask	= "*" & sBoundaryType & "_purchasing_power_hhold*" & DDFGetDaypartShortName(nDaypart) & "_*." & sFileType
+			sMask	= "*" & sBoundaryType & "_purchasing_power_hhold*" & sDayPart & "." & sFileType
 		Case DD_DATATYPE_PP_INHABITANT
-			sMask	= "*" & sBoundaryType & "_purchasing_power_inh*" & DDFGetDaypartShortName(nDaypart) & "*." & sFileType
+			sMask	= "*" & sBoundaryType & "_purchasing_power_inh*" & sDayPart & "." & sFileType
 		Case DD_DATATYPE_CS_POTENTIAL
-			sMask	= "*" & sBoundaryType & "_spend*" & DDFGetDaypartShortName(nDaypart) & "*." & sFileType
+			sMask	= "*" & sBoundaryType & "_spend*" & sDayPart & "." & sFileType
 		Case DD_DATATYPE_HOUSEHOLD_INCOME
-			sMask	= "*" & sBoundaryType & "_hh_income*" & DDFGetDaypartShortName(nDaypart) & "*." & sFileType
+			sMask	= "*" & sBoundaryType & "_hh_income*" & sDayPart & "." & sFileType
 		Case DD_DATATYPE_PROFESSION
-			sMask	= "*" & sBoundaryType & "_profession*" & DDFGetDaypartShortName(nDaypart) & "*." & sFileType
+			sMask	= "*" & sBoundaryType & "_profession*" & sDayPart & "." & sFileType
 
 		Case DD_DATATYPE_ORIG_2_DESTINATION
-			sMask	= "*" & sBoundaryType & "_origin_destination*" & DDFGetDaypartShortName(nDaypart) & "*." & sFileType
+			sMask	= "*" & sBoundaryType & "_origin_destination*" & sDayPart & "." & sFileType
 		Case DD_DATATYPE_BOUNDARIES
 			sMask	= "*" & "dd_*" & sBoundaryType & "*." & sFileType
 	End Case
 
-'	Call DEBUGPrint("   Mask: " & sMask)
+'	Call DEBUGPrint("   DDFGetBoundaryFileName: Mask: " & sMask)
 	nNumFiles = FILEFindFilesInFolder(sPath, sMask)
 	Do Case nNumFiles
 		Case 0
+			Call DEBUGPrint("DDFGetBoundaryFileName: No Files found matching the mask '" & sMask & "' where found in this folder: " & sPath)
 			Call RBNNotificationShow("Dynamic Demographic Analyzer", "No files matching the mask '" & sMask & "' where found in this folder: " & sPath, Notify_Warning, 10000)
 			Exit Function
 		Case 1
@@ -91,7 +99,7 @@ Function DDFGetOrigin2DestFileName(  ByVal sMainFolder As String
 							, ByVal sFileType As String		'"TAB", "TXT"
 							) As String
 
-Dim	sPath, sMask, sFile, sBoundaryType As String,
+Dim	sPath, sMask, sFile, sBoundaryType, sDayPart As String,
 	nNumFiles As Integer
 
 OnError GoTo ErrorOccured
@@ -101,7 +109,14 @@ DDFGetOrigin2DestFileName = ""
 	sPath		= FILEAddBackSlash(DDFGetDataTypeFolderPath(sMainFolder, bPivoted, nDataType, sBoundaryType))
 	sBoundaryType	= DDFGetBoundaryShortName(nBoundaryType)
 
-	sMask	= "*" & sBoundaryType & "_origin_destination*" & DDFGetDaypartShortName(nDaypart) & "_*." & sFileType
+	If DDFIsDataTypeSplitByDaypart(nDataType) Then
+		sDayPart		= DDFGetDaypartShortName(nDaypart)
+		sDayPart		= IIf(sDayPart = "", "", sDayPart & "_*")
+	Else
+		sDayPart		= ""
+	End If
+
+	sMask	= "*" & sBoundaryType & "_origin_destination*" & sDayPart & "." & sFileType
 
 '	Call DEBUGPrint("DDFGetOrigin2DestFileName: " & sMask)
 	nNumFiles = FILEFindFilesInFolder(sPath, sMask)
@@ -141,6 +156,10 @@ OnError GoTo ErrorOccured
 			DDFGetDaypartDescription 	= "Evening, 18:00-20:59"
 		Case DD_DAYPART_NIGHT		'4
 			DDFGetDaypartDescription 	= "Night, 21:00-05:59"
+		Case DD_DAYPART_TOTAL
+			DDFGetDaypartDescription 	= "Total"
+		Case DD_DAYPART_WEEKPART
+			DDFGetDaypartDescription 	= "Weekpart"
 	End Case
 
 	Exit Function
@@ -156,13 +175,17 @@ OnError GoTo ErrorOccured
 
 	Do Case nDaypart
 		Case DD_DAYPART_MORNING		'1
-			DDFGetDaypartShortName 	= "Mor"
+			DDFGetDaypartShortName 	= "mor"
 		Case DD_DAYPART_AFTERNOON 	'2
-			DDFGetDaypartShortName 	= "Aft"
+			DDFGetDaypartShortName 	= "aft"
 		Case DD_DAYPART_EVENING		'3
-			DDFGetDaypartShortName 	= "Eve"
+			DDFGetDaypartShortName 	= "eve"
 		Case DD_DAYPART_NIGHT		'4
-			DDFGetDaypartShortName 	= "Ngt"
+			DDFGetDaypartShortName 	= "ngt"
+		Case DD_DAYPART_TOTAL
+			DDFGetDaypartShortName 	= "tot"
+		Case DD_DAYPART_WEEKPART
+			DDFGetDaypartShortName 	= "wpt"
 		Case Else
 			DDFGetDaypartShortName = ""	'No daypart specified
 	End Case

@@ -18,7 +18,7 @@ Include "Library\RibbonElements.def"
 
 Define xProgram 		"Dynamic Demograpic Analyzer"
 Define xProgramMenu		"DynamicDemograpicAnalyzer"
-Define xVersion 		"1.5.2"
+Define xVersion 		"1.5.5"
 Define xYear			"2022"
 Define xAddToMenuBar	FALSE
 

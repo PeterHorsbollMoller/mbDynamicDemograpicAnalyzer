@@ -116,7 +116,7 @@ DDConfigDlg = FALSE
 	End If
 
 	Dialog
-		Title "Configurarion"
+		Title "Configuration"
 		Calling DDCHandler_OnLoad
 
 		'**************************************************************************************
