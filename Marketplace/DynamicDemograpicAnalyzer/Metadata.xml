@@ -1,0 +1,9 @@
+﻿<?xml version="1.0" encoding="utf-16"?>
+<MarketplaceProduct xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<ProductType>
+		<Type>Addin</Type>
+	</ProductType>
+	<IconUri>DynamicDemographic_32.png</IconUri>
+	<InstallationFolder>DynamicDemograpicAnalyzer\</InstallationFolder>
+	<MbxName>DynamicDemograpicAnalyzer.MBX</MbxName>
+</MarketplaceProduct>

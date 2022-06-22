@@ -1,7 +1,1 @@
-14:42:36 DDFGetBoundaryFileName: No Files found matching the mask '*hex_age_gender*tot_*.TAB' where found in this folder: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_AUS_202203\data\age_gender\Pivoted\
-14:42:36 Boundary File: 
-14:42:36 Orig2Dest File: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_AUS_202203\data\origin_destination\Pivoted\dd_hex_origin_destination_tot_aus_p.TAB
-14:43:17 You click daypart 2 Afternoon, 12:00-17:59
-14:43:17 ---------------------------------------
-14:43:17 Boundary File: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_AUS_202203\data\age_gender\Pivoted\dd_hex_age_gender_aft_aus_p.TAB
-14:43:17 Orig2Dest File: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_AUS_202203\data\origin_destination\Pivoted\dd_hex_origin_destination_aft_aus_p.TAB
+09:28:14 Orig2Dest File: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_GBR_202203\DynamicDemographics_o3_sample_GBR_202203_TXT\data\origin_destination\Pivoted\dd_hex_origin_destination_mor_gbr_p.TAB
