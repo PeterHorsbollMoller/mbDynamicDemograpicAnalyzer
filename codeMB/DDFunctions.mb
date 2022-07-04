@@ -18,9 +18,12 @@ Include "Library\DEBUGLib.def"
 Include "Library\ERRORLib.def"
 Include "Library\FILELib.def"
 Include "Library\RIBBONLib.def"
+Include "Library\STRINGLib.def"
 Include "Library\TABLELib.def"
 
 Include "DDFunctions.def"
+
+Dim	msTempFile, msTempFolder As String
 
 '**********************************************************************************************''
 Function DDFGetBoundaryFileName(	  ByVal sMainFolder As String
@@ -61,6 +64,8 @@ DDFGetBoundaryFileName = ""
 			sMask	= "*" & sBoundaryType & "_hh_income*" & sDayPart & "." & sFileType
 		Case DD_DATATYPE_PROFESSION
 			sMask	= "*" & sBoundaryType & "_profession*" & sDayPart & "." & sFileType
+		Case DD_DATATYPE_CONSUMER_STYLES
+			sMask	= "*" & sBoundaryType & "_consumer_styles*" & sDayPart & "." & sFileType
 
 		Case DD_DATATYPE_ORIG_2_DESTINATION
 			sMask	= "*" & sBoundaryType & "_origin_destination*" & sDayPart & "." & sFileType
@@ -72,8 +77,8 @@ DDFGetBoundaryFileName = ""
 	nNumFiles = FILEFindFilesInFolder(sPath, sMask)
 	Do Case nNumFiles
 		Case 0
-			Call DEBUGPrint("DDFGetBoundaryFileName: No Files found matching the mask '" & sMask & "' where found in this folder: " & sPath)
-			Call RBNNotificationShow("Dynamic Demographic Analyzer", "No files matching the mask '" & sMask & "' where found in this folder: " & sPath, Notify_Warning, 10000)
+			Call DEBUGPrint("DDFGetBoundaryFileName: No Files found matching the mask '" & sMask & "' were found in this folder: " & sPath)
+			Call RBNNotificationShow("Dynamic Demographic Analyzer", "No files matching the mask '" & sMask & "' were found in this folder: " & sPath, Notify_Warning, 10000)
 			Exit Function
 		Case 1
 			sFile = FILEGetFindFilesFileName(1)
@@ -122,8 +127,8 @@ DDFGetOrigin2DestFileName = ""
 	nNumFiles = FILEFindFilesInFolder(sPath, sMask)
 	Do Case nNumFiles
 		Case 0
-			Call RBNNotificationShow("Dynamic Demographic Analyzer", "No files matching the mask '" & sMask & "' where found in this folder: " & sPath, Notify_Warning, 10000)
-			Call DEBUGPrint("DDFGetOrigin2DestFileName: No Files found matching the mask '" & sMask & "' where found in this folder: " & sPath)
+			Call RBNNotificationShow("Dynamic Demographic Analyzer", "No files matching the mask '" & sMask & "' were found in this folder: " & sPath, Notify_Warning, 10000)
+			Call DEBUGPrint("DDFGetOrigin2DestFileName: No Files found matching the mask '" & sMask & "' were found in this folder: " & sPath)
 			Exit Function
 		Case 1
 			sFile = FILEGetFindFilesFileName(1)
@@ -243,6 +248,8 @@ OnError GoTo ErrorOccured
 			DDFGetDataTypeDescription = "Household Income"
 		Case DD_DATATYPE_PROFESSION
 			DDFGetDataTypeDescription = "Profession"
+		Case DD_DATATYPE_CONSUMER_STYLES
+			DDFGetDataTypeDescription = "Consumer Styles"
 
 		Case DD_DATATYPE_ORIG_2_DESTINATION
 			DDFGetDataTypeDescription = "Origin to Destination"
@@ -276,6 +283,8 @@ OnError GoTo ErrorOccured
 			DDFGetDataTypeShortName = "HHIncome"
 		Case DD_DATATYPE_PROFESSION
 			DDFGetDataTypeShortName = "Prof"
+		Case DD_DATATYPE_CONSUMER_STYLES
+			DDFGetDataTypeShortName = "ConsStyle"
 
 		Case DD_DATATYPE_ORIG_2_DESTINATION
 			DDFGetDataTypeShortName = "Orig2Dest"
@@ -365,6 +374,8 @@ OnError GoTo ErrorOccured
 			DDFGetDataTypeFolderName = "household_income"
 		Case DD_DATATYPE_PROFESSION
 			DDFGetDataTypeFolderName = "profession"
+		Case DD_DATATYPE_CONSUMER_STYLES
+			DDFGetDataTypeFolderName = "consumer_styles"
 
 		Case DD_DATATYPE_ORIG_2_DESTINATION
 			DDFGetDataTypeFolderName = "origin_destination"
@@ -737,3 +748,121 @@ ErrorOccured:
 	Call ERRShow()
 
 End Function
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub DDFSaveAsTemp(	  ByVal sTable As String
+				, ByVal bClose As Logical		'Close the original after saving the copy
+				, ByVal bOpen As Logical			'Open the copy after it has been saved, only supported if the original is closed
+				, ByVal bTurnPersistOff As Logical	'Set the table to not get saved to a workspace
+				, ByVal bCleanUpName As Logical	'Converts "_" to " " in the file name
+				)
+
+Dim	msTempFile As String
+
+OnError GoTo ErrorOccured
+
+	If bCleanUpName Then
+		msTempFile	= DDFGetTempFolder() & STRINGReplace(sTable, "_", " ") & ".tab"
+	Else
+		msTempFile	= DDFGetTempFolder() & sTable & ".tab"
+	End If
+	Set Progressbars Off
+	Commit Table sTable As msTempFile
+	Set Progressbars On
+
+	If bClose Then
+		Close Table sTable
+
+		If bOpen Then
+			Open Table msTempFile
+
+			If bTurnPersistOff Then
+				Set Table sTable Persist Off
+			End If
+		End If
+	End If
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDFSaveAsTemp")
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
+Function DDFGetLastTempFileName() As String
+
+OnError GoTo ErrorOccured
+
+	DDFGetLastTempFileName = msTempFile
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDFGetLastTempFileName")
+	Call ERRShow()
+
+End Function
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
+Function DDFGetTempFolder() As String
+
+OnError GoTo ErrorOccured
+
+	DDFGetTempFolder = IIf(msTempFolder = "", PathToDirectory$(TempFileName$("")), msTempFolder)
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDFGetTempFolder")
+	Call ERRShow()
+
+End Function
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub DDFCloseTempDDTables()
+
+Dim	i As Integer,
+	sFrom, sTo As String
+
+OnError GoTo ErrorOccured
+
+	For i = 1 To 2
+		sFrom	= IIf(i = 1, "Dest", "Orig")
+		sTo		= IIf(i = 1, "Orig", "Dest")
+
+		Call TABClose(sTo & "_DD")
+		Call TABClose(sFrom & "s_DD")
+		Call TABClose(sFrom & "s_Home_DD")
+		Call TABClose(sFrom & "s_Work_DD")
+		Call TABClose(sTo & "_2_" & sFrom & "s_DD")
+		Call TABClose(sTo & "_2_" & sFrom & "s_Home_DD")
+		Call TABClose(sTo & "_2_" & sFrom & "s_WORK_DD")
+	Next
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDFCloseTempDDTables")
+	Call ERRShow()
+
+End Sub

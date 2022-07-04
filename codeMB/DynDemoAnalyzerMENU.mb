@@ -4,6 +4,15 @@
 '** 	Modul:
 '**
 '*******************************************************************************
+'29-06-2022 09:06:56	v1.6.0:
+'					- Fixed issue: Configuration dialog shows an error when no Data Type has been selected
+'					- Fixed issue: Data Loading dialog shows error when no Main Folder has been specified
+'					- Added option to not use Data Types in the analysis, will use Orig to Destination table instead
+'					- Added support for data type Consumer Styles
+'					- Added option to perform an analysis for multiple boundaries resulting in an aggregated view
+'					- The analysis tables are now native tables stored in the temp folder, no longer query tables
+'					- The analysis tables are opened with persist set to off meaning the will not be saved to a workspace
+'*******************************************************************************
 
 '-------------------------------------
 Include "Enums.def"
@@ -18,7 +27,7 @@ Include "Library\RibbonElements.def"
 
 Define xProgram 		"Dynamic Demograpic Analyzer"
 Define xProgramMenu		"DynamicDemograpicAnalyzer"
-Define xVersion 		"1.5.5"
+Define xVersion 		"1.6.0"
 Define xYear			"2022"
 Define xAddToMenuBar	FALSE
 
@@ -63,6 +72,12 @@ Declare Function MENUCreateFromQueryTable(	  ByVal oPoint As Object			'Location 
 									, ByVal sColumnAreaID As String	'Column with Area_ID
 									, ByVal sQueryName As String		'Name of resulting query
 									) As String					'Returns the Area ID
+Declare Function MENUCreateFromQueryTableFromTab(	  ByVal sSelectionTable As String	'Table with list of Area_IDs
+										, ByVal sTable As String			'Table with DD Boundaries to query
+										, ByVal sColumnAreaID As String	'Column with Area_ID
+										, ByVal sQueryName As String		'Name of resulting query
+										) As String					'Returns the Area ID
+
 Declare Function MENUCreateToQueryTables( ByVal oFromPolygon As Object		'Polygon of the starting position
 								, ByVal sAreaID As String			'Area_ID to search for
 								, ByVal sOriginAreaType As String		'Origin AreaType to search use
@@ -75,6 +90,20 @@ Declare Function MENUCreateToQueryTables( ByVal oFromPolygon As Object		'Polygon
 								, ByVal sQueryNameArea As String		'Name of resulting query with polygons
 								, ByVal sQueryNameLine As String		'Name of resulting query with lines
 								) As Integer						'Number of Rows Selected, 0 if none were found
+Declare Function MENUCreateToQueryTablesFromTab( ByVal sSelectionTable As String		'Table with list of Area_IDs
+										, ByVal oFromPolygon As Object		'Polygon of the starting position
+										, ByVal sAreaID As String			'Area_ID to search for
+										, ByVal sOriginAreaType As String		'Origin AreaType to search use
+										, ByVal sTabBoundary As String		'Table with DD Boundaries to query
+										, ByVal sColB_AreaID As String		'Column with Area_ID
+										, ByVal sTabOrigin2Dest As String		'Table with Origin 2 Destinations to query
+										, ByVal sColOD_AreaID As String		'Column with Area_ID - of the start point
+										, ByVal sColOD_AreaIDStart As String	'Column with Area_ID - of the end point
+										, ByVal sColOD_OriginAreaType As String	'Column with Origin_Area_Type
+										, ByVal sQueryNameArea As String		'Name of resulting query with polygons
+										, ByVal sQueryNameLine As String		'Name of resulting query with lines
+										) As Integer						'Number of Rows Selected, 0 if none were found
+
 Declare Sub MENUAddFromQueryTablesToMap(  ByVal nMID As Integer
 								, ByVal sQueryName As String
 								, ByVal sToFromType As String)
@@ -86,6 +115,7 @@ Declare Sub MENUAddToQueryTablesToMap(	  ByVal nMID As Integer
 
 
 Declare Sub MENUDestination2Origins
+Declare Sub MENUDestination2OriginsFromSel
 Declare Sub MENUOrigin2Destinations
 
 Declare Function MENUGetLayerPen(ByVal sType As String) As Pen
@@ -98,6 +128,7 @@ Type T_DD_RESULT
 End Type
 
 Dim	msTabBoundary, msTabOrigin2Dest, marrQueryNames(), marrQueryTypes() As String,
+	msTempFolder As String,
 	mtarrResults(0) As T_DD_RESULT
 'Dim	marrQueryTypes() As String
 
@@ -131,18 +162,24 @@ OnError GoTo ErrorOccured
 	sTabName		= TAB_MAP
 	sGroupName	= TAB_GROUP_MAP_SELECTION
 
-	nCtrlIdx = RBNGroupAddControl("cmdDDAnalyzerD2O", "Destination to Origin", "", ControlType_ToolButton, sTabName, sGroupName)
+	nCtrlIdx = RBNGroupAddControl("cmdDDAnalyzerD2O", "Destination to Origins", "", ControlType_ToolButton, sTabName, sGroupName)
 	If nCtrlIdx > 0 Then
-		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Create a Destination to Origin Analysis.", "")
+		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Create a Destination to Origins Analysis.", "")
 		Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_LARGE, "", ApplicationDirectory$() & "Dest2Origin_64.png")
 		Call RBNControlSetDrawModeIdx(nCtrlIdx, DM_CUSTOM_POINT)
 		Call RBNControlSetMICursorIdx(nCtrlIdx, MI_CURSOR_ARROW, "")
 		Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUDestination2Origins")
 	End If
-
-	nCtrlIdx = RBNGroupAddControl("cmdDDAnalyzerO2D", "Origin to Destination", "", ControlType_ToolButton, sTabName, sGroupName)
+	nCtrlIdx = RBNGroupAddControl("cmdDDAnalyzerD2OSel", "Destinations to Origins", "", ControlType_Button, sTabName, sGroupName)
 	If nCtrlIdx > 0 Then
-		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Create a Origin to Destination Analysis.", "")
+		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Create a Destinations to Origins Analysis using the selection.", "")
+		Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_LARGE, "", ApplicationDirectory$() & "Dest2Origin_64.png")
+		Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUDestination2OriginsFromSel")
+	End If
+
+	nCtrlIdx = RBNGroupAddControl("cmdDDAnalyzerO2D", "Origin to Destinations", "", ControlType_ToolButton, sTabName, sGroupName)
+	If nCtrlIdx > 0 Then
+		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Create a Origin to Destinations Analysis.", "")
 		Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_LARGE, "", ApplicationDirectory$() & "Origin2Dest_64.png")
 		Call RBNControlSetDrawModeIdx(nCtrlIdx, DM_CUSTOM_POINT)
 		Call RBNControlSetMICursorIdx(nCtrlIdx, MI_CURSOR_ARROW, "")
@@ -197,9 +234,11 @@ OnError GoTo ErrorOccured
 
 	If DDCGetBoundaryFile() = "" Or DDCGetOrigin2DestFile() = "" Then
 		Call RBNGroupEnableControls("", "", "cmdDDAnalyzerD2O", FALSE)
+		Call RBNGroupEnableControls("", "", "cmdDDAnalyzerD2OSel", FALSE)
 		Call RBNGroupEnableControls("", "", "cmdDDAnalyzerO2D", FALSE)
 	Else
 		Call RBNGroupEnableControls("", "", "cmdDDAnalyzerD2O", TRUE)
+		Call RBNGroupEnableControls("", "", "cmdDDAnalyzerD2OSel", TRUE)
 		Call RBNGroupEnableControls("", "", "cmdDDAnalyzerO2D", TRUE)
 	End If
 
@@ -526,6 +565,7 @@ ErrorOccured:
 
 End Sub
 
+
 '**********************************************************************************************''
 'Created by Peter Horsbøll Møller, Precisely
 'Parameters:
@@ -552,7 +592,7 @@ MENUCreateFromQueryTable = ""
 		Into __currDD NoSelect Hide
 
 	If TableInfo(__currDD, TAB_INFO_NROWS) = 0 Then
-		Call RBNNotificationShow(PRGIGetApplicationName(), "No Dynamic Demographic Polygon found at that location!", Notify_Error, 2500)
+		Call RBNNotificationShow(PRGIGetApplicationName(), "No Dynamic Demographic Polygon found at that location!", Notify_Error, 10000)
 		Close Table __currDD
 		Exit Function
 	End If
@@ -587,9 +627,11 @@ MENUCreateFromQueryTable = ""
 
 	If TableInfo(sQueryName, TAB_INFO_NROWS) = 0 Then
 		Close Table sQueryName
-		Call RBNNotificationShow(PRGIGetApplicationName(), "No Dynamic Demographic Polygons found for Area_ID '" & sAreaID & "'!", Notify_Error, 2500)
+		Call RBNNotificationShow(PRGIGetApplicationName(), "No Dynamic Demographic Polygons found for Area_ID '" & sAreaID & "'!", Notify_Error, 10000)
 		Exit Function
 	End If
+
+	Call DDFSaveAsTemp(sQueryName, TRUE, TRUE, TRUE, TRUE)
 
 MENUCreateFromQueryTable = sAreaID
 
@@ -597,6 +639,72 @@ MENUCreateFromQueryTable = sAreaID
 '-------------------------
 ErrorOccured:
 	Call ERRCreate(Err(), Error$(), "MENUCreateFromQueryTable")
+	Call ERRShow()
+
+End Function
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
+Function MENUCreateFromQueryTableFromTab( ByVal sSelectionTable As String	'Table with list of Area_IDs
+								, ByVal sTable As String			'Table with DD Boundaries to query
+								, ByVal sColumnAreaID As String	'Column with Area_ID
+								, ByVal sQueryName As String		'Name of resulting query
+								) As String					'Returns the Area ID
+
+Dim	aAreaID, aAreaIDInput, aRowID As Alias,
+	nRowID As Integer,
+	sAreaIDs As String
+
+OnError GoTo ErrorOccured
+
+MENUCreateFromQueryTableFromTab = ""
+
+	If TableInfo(sSelectionTable, TAB_INFO_NROWS) = 0 Then
+		Call RBNNotificationShow(PRGIGetApplicationName(), "No Dynamic Demographic Polygon Area_IDs specified!", Notify_Error, 10000)
+		Exit Function
+	End If
+
+	aAreaID		= sTable & "." & sColumnAreaID
+	aAreaIDInput	= sSelectionTable & "." & sColumnAreaID
+	aRowID		= sSelectionTable & ".ROWID"
+
+	Fetch First from sSelectionTable
+	Do Until EOT(sSelectionTable)
+		nRowID	= aRowID
+		If nRowID > 3 Then
+			sAreaIDs	= STRINGConcatenateWithSeparator(sAreaIDs, "and more", ", ")
+			Exit Do
+		End If
+		sAreaIDs	= STRINGConcatenateWithSeparator(sAreaIDs, aAreaIDInput, ", ")
+
+		Fetch Next from sSelectionTable
+	Loop
+
+	Select sAreaIDs "Area_ID", AggregateCombine(OBJ)
+		From sTable
+		Where aAreaID In (Select aAreaIDInput From sSelectionTable)
+		And OBJ
+		Into sQueryName NoSelect
+
+	If TableInfo(sQueryName, TAB_INFO_NROWS) = 0 Then
+		Close Table sQueryName
+		Call RBNNotificationShow(PRGIGetApplicationName(), "No Dynamic Demographic Polygons found using Selection!", Notify_Error, 10000)
+		Exit Function
+	End If
+
+	Call DDFSaveAsTemp(sQueryName, TRUE, TRUE, TRUE, TRUE)
+
+MENUCreateFromQueryTableFromTab = sAreaIDs
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "MENUCreateFromQueryTableFromTab")
 	Call ERRShow()
 
 End Function
@@ -622,84 +730,106 @@ Function MENUCreateToQueryTables(	  ByVal oFromPolygon As Object		'Polygon of th
 							) As Integer						'Number of Rows Selected, 0 if none were found
 
 Dim	nNumRows As Integer,
-	aB_AreaID As Alias,
-	aOD_OriginAreaType, aOD_AreaID, aOD_AreaIDStart As Alias
+'	aB_AreaID As Alias,
+'	aOD_OriginAreaType, aOD_AreaID, aOD_AreaIDStart As Alias
+	sCmd As String
 
 OnError GoTo ErrorOccured
 
 MENUCreateToQueryTables = 0
 
-	aB_AreaID			= sTabBoundary & "." & sColB_AreaID
+'	aB_AreaID			= sTabBoundary & "." & sColB_AreaID
 
-	aOD_OriginAreaType	= sTabOrigin2Dest & "." & sColOD_OriginAreaType
-	aOD_AreaID		= sTabOrigin2Dest & "." & sColOD_AreaID
-	aOD_AreaIDStart	= sTabOrigin2Dest & "." & sColOD_AreaIDStart
+'	aOD_OriginAreaType	= sTabOrigin2Dest & "." & sColOD_OriginAreaType
+'	aOD_AreaID		= sTabOrigin2Dest & "." & sColOD_AreaID
+'	aOD_AreaIDStart	= sTabOrigin2Dest & "." & sColOD_AreaIDStart
 
-	'New Query using Join
-	If sOriginAreaType = "" Then
-		Call DEBUGPrint("Select * From " & sTabBoundary & ", " & sTabOrigin2Dest
-					& " Where " & sTabBoundary & "." & sColB_AreaID & " = " & sTabOrigin2Dest & "." & sColOD_AreaID
-					& " And " & sTabOrigin2Dest & "." & sColOD_AreaIDStart & " = " & Chr$(34) & sAreaID & Chr$(34)
-					& " And OBJ Into " & sQueryNameArea & " NoSelect")
+	sCmd	= "Select *"
+				& " From " & sTabBoundary & " As " & Chr$(34) & "b" & Chr$(34) &  ", " & sTabOrigin2Dest & " As " & Chr$(34) & "od" & Chr$(34)
+				& " Where b." & sColB_AreaID & " = od." & sColOD_AreaID
+				& " And od." & sColOD_AreaIDStart
 
-		Do Case ColumnInfo(sTabOrigin2Dest, sColOD_AreaIDStart, COL_INFO_TYPE)
-			Case COL_TYPE_CHAR
-				Select *
-					From sTabBoundary, sTabOrigin2Dest
-					Where aB_AreaID = aOD_AreaID
-					And aOD_AreaIDStart = sAreaID
-					And OBJ
-					Into sQueryNameArea NoSelect
-			Case COL_TYPE_INTEGER, COL_TYPE_DECIMAL, COL_TYPE_FLOAT, COL_TYPE_SMALLINT, COL_TYPE_LARGEINT
-				Select *
-					From sTabBoundary, sTabOrigin2Dest
-					Where aB_AreaID = aOD_AreaID
-					And aOD_AreaIDStart = Val(sAreaID)
-					And OBJ
-					Into sQueryNameArea NoSelect
-			Case Else
-				Select *
-					From sTabBoundary, sTabOrigin2Dest
-					Where aB_AreaID = aOD_AreaID
-					And aOD_AreaIDStart = sAreaID
-					And OBJ
-					Into sQueryNameArea NoSelect
-		End Case
-
+	If ColumnInfo(sTabOrigin2Dest, sColOD_AreaIDStart, COL_INFO_TYPE) = COL_TYPE_CHAR Then
+		sCmd = sCmd & " And od." & sColOD_AreaIDStart & " = " & Chr$(34) & sAreaID & Chr$(34)
 	Else
-		Call DEBUGPrint("Select * From " & sTabBoundary & ", " & sTabOrigin2Dest
-					& " Where " & sTabBoundary & "." & sColB_AreaID & " = " & sTabOrigin2Dest & "." & sColOD_AreaID
-					& " And " & sTabOrigin2Dest & "." & sColOD_OriginAreaType & " = " & Chr$(34) & sOriginAreaType & Chr$(34)
-					& " And " & sTabOrigin2Dest & "." & sColOD_AreaIDStart & " = " & Chr$(34) & sAreaID & Chr$(34)
-					& " And OBJ Into " & sQueryNameArea & " NoSelect")
-
-		Do Case ColumnInfo(sTabOrigin2Dest, sColOD_AreaIDStart, COL_INFO_TYPE)
-			Case COL_TYPE_CHAR
-				Select *
-					From sTabBoundary, sTabOrigin2Dest
-					Where aB_AreaID = aOD_AreaID
-					And aOD_OriginAreaType = sOriginAreaType
-					And aOD_AreaIDStart = sAreaID
-					And OBJ
-					Into sQueryNameArea NoSelect
-			Case COL_TYPE_INTEGER, COL_TYPE_DECIMAL, COL_TYPE_FLOAT, COL_TYPE_SMALLINT, COL_TYPE_LARGEINT
-				Select *
-					From sTabBoundary, sTabOrigin2Dest
-					Where aB_AreaID = aOD_AreaID
-					And aOD_OriginAreaType = sOriginAreaType
-					And aOD_AreaIDStart = Val(sAreaID)
-					And OBJ
-					Into sQueryNameArea NoSelect
-			Case Else
-				Select *
-					From sTabBoundary, sTabOrigin2Dest
-					Where aB_AreaID = aOD_AreaID
-					And aOD_OriginAreaType = sOriginAreaType
-					And aOD_AreaIDStart = sAreaID
-					And OBJ
-					Into sQueryNameArea NoSelect
-		End Case
+		sCmd = sCmd & " And od." & sColOD_AreaIDStart & " = Val(" & sAreaID & ")"
 	End If
+
+	If sOriginAreaType <> "" Then
+		sCmd	= sCmd & " And od." & sColOD_OriginAreaType & " > 0"
+	End If
+
+	sCmd	= sCmd & " Into " & sQueryNameArea & " NoSelect Hide"
+
+
+'	'New Query using Join
+'	If sOriginAreaType = "" Then
+'		Call DEBUGPrint("Select * From " & sTabBoundary & ", " & sTabOrigin2Dest
+'					& " Where " & sTabBoundary & "." & sColB_AreaID & " = " & sTabOrigin2Dest & "." & sColOD_AreaID
+'					& " And " & sTabOrigin2Dest & "." & sColOD_AreaIDStart & " = " & Chr$(34) & sAreaID & Chr$(34)
+'					& " And OBJ Into " & sQueryNameArea & " NoSelect")
+'
+'		Do Case ColumnInfo(sTabOrigin2Dest, sColOD_AreaIDStart, COL_INFO_TYPE)
+'			Case COL_TYPE_CHAR
+'				Select *
+'					From sTabBoundary, sTabOrigin2Dest
+'					Where aB_AreaID = aOD_AreaID
+'					And aOD_AreaIDStart = sAreaID
+'					And OBJ
+'					Into sQueryNameArea NoSelect
+'			Case COL_TYPE_INTEGER, COL_TYPE_DECIMAL, COL_TYPE_FLOAT, COL_TYPE_SMALLINT, COL_TYPE_LARGEINT
+'				Select *
+'					From sTabBoundary, sTabOrigin2Dest
+'					Where aB_AreaID = aOD_AreaID
+'					And aOD_AreaIDStart = Val(sAreaID)
+'					And OBJ
+'					Into sQueryNameArea NoSelect
+'			Case Else
+'				Select *
+'					From sTabBoundary, sTabOrigin2Dest
+'					Where aB_AreaID = aOD_AreaID
+'					And aOD_AreaIDStart = sAreaID
+'					And OBJ
+'					Into sQueryNameArea NoSelect
+'		End Case
+'
+'	Else
+'		Call DEBUGPrint("Select * From " & sTabBoundary & ", " & sTabOrigin2Dest
+'					& " Where " & sTabBoundary & "." & sColB_AreaID & " = " & sTabOrigin2Dest & "." & sColOD_AreaID
+'					& " And " & sTabOrigin2Dest & "." & sColOD_OriginAreaType & " > 0"		' & Chr$(34) & sOriginAreaType & Chr$(34)
+'					& " And " & sTabOrigin2Dest & "." & sColOD_AreaIDStart & " = " & Chr$(34) & sAreaID & Chr$(34)
+'					& " And OBJ Into " & sQueryNameArea & " NoSelect")
+'
+'		Do Case ColumnInfo(sTabOrigin2Dest, sColOD_AreaIDStart, COL_INFO_TYPE)
+'			Case COL_TYPE_CHAR
+'				Select *
+'					From sTabBoundary, sTabOrigin2Dest
+'					Where aB_AreaID = aOD_AreaID
+'					And aOD_OriginAreaType > 0	'= sOriginAreaType
+'					And aOD_AreaIDStart = sAreaID
+'					And OBJ
+'					Into sQueryNameArea NoSelect
+'			Case COL_TYPE_INTEGER, COL_TYPE_DECIMAL, COL_TYPE_FLOAT, COL_TYPE_SMALLINT, COL_TYPE_LARGEINT
+'				Select *
+'					From sTabBoundary, sTabOrigin2Dest
+'					Where aB_AreaID = aOD_AreaID
+'					And aOD_OriginAreaType > 0	'sOriginAreaType
+'					And aOD_AreaIDStart = Val(sAreaID)
+'					And OBJ
+'					Into sQueryNameArea NoSelect
+'			Case Else
+'				Select *
+'					From sTabBoundary, sTabOrigin2Dest
+'					Where aB_AreaID = aOD_AreaID
+'					And aOD_OriginAreaType > 0	'sOriginAreaType
+'					And aOD_AreaIDStart = sAreaID
+'					And OBJ
+'					Into sQueryNameArea NoSelect
+'		End Case
+'	End If
+
+	Call DEBUGPrint(sCmd)
+	Run Command sCmd
 	nNumRows	= TableInfo(sQueryNameArea, TAB_INFO_NROWS)
 
 	If nNumRows = 0 Then
@@ -707,11 +837,15 @@ MENUCreateToQueryTables = 0
 		Exit Function
 	End If
 
+	Call DDFSaveAsTemp(sQueryNameArea, TRUE, TRUE, TRUE, TRUE)
+
 	If sQueryNameLine <> "" Then
 		Select q.*, ConnectObjects(Centroid(oFromPolygon), Centroid(q.OBJ), TRUE) Object
 			From sQueryNameArea As "q"
 			Into sQueryNameLine NoSelect
 	End If
+
+	Call DDFSaveAsTemp(sQueryNameLine, TRUE, TRUE, TRUE, TRUE)
 
 	MENUCreateToQueryTables = nNumRows
 
@@ -719,6 +853,102 @@ MENUCreateToQueryTables = 0
 '-------------------------
 ErrorOccured:
 	Call ERRCreate(Err(), Error$(), "MENUCreateToQueryTables")
+	Call ERRShow()
+
+End Function
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
+Function MENUCreateToQueryTablesFromTab(  ByVal sSelectionTable As String		'Table with list of Area_IDs
+								, ByVal oFromPolygon As Object		'Polygon of the starting position
+								, ByVal sAreaIDs As String			'Area_IDs from selection
+								, ByVal sOriginAreaType As String		'Origin AreaType to search use
+								, ByVal sTabBoundary As String		'Table with DD Boundaries to query
+								, ByVal sColB_AreaID As String		'Column with Area_ID
+								, ByVal sTabOrigin2Dest As String		'Table with Origin 2 Destinations to query
+								, ByVal sColOD_AreaID As String		'Column with Area_ID - of the start point
+								, ByVal sColOD_AreaIDStart As String	'Column with Area_ID - of the end point
+								, ByVal sColOD_OriginAreaType As String	'Column with Origin_Area_Type
+								, ByVal sQueryNameArea As String		'Name of resulting query with polygons
+								, ByVal sQueryNameLine As String		'Name of resulting query with lines
+								) As Integer						'Number of Rows Selected, 0 if none were found
+
+Dim	nNumRows As Integer,
+'	aB_AreaID As Alias,
+'	aOD_OriginAreaType, aOD_AreaID, aOD_AreaIDStart, aAreaIDInput, aOD_OBJ As Alias
+	sCmd As String
+
+OnError GoTo ErrorOccured
+
+MENUCreateToQueryTablesFromTab = 0
+
+'	aB_AreaID			= sTabBoundary & "." & sColB_AreaID
+'	aAreaIDInput		= sSelectionTable & "." & sColB_AreaID
+
+'	aOD_OriginAreaType	= sTabOrigin2Dest & "." & sColOD_OriginAreaType
+'	aOD_AreaID		= sTabOrigin2Dest & "." & sColOD_AreaID
+'	aOD_AreaIDStart	= sTabOrigin2Dest & "." & sColOD_AreaIDStart
+'	aOD_OBJ			= sTabOrigin2Dest & ".OBJ"
+
+	sCmd	= "Select " & Chr$(34) & sAreaIDs & Chr$(34) & " " & Chr$(34) & "AREA_ID" & Chr$(34)
+				& ", " & sTabOrigin2Dest & "." & sColOD_AreaID
+				& " From " & sTabBoundary & " As " & Chr$(34) & "b" & Chr$(34) &  ", " & sTabOrigin2Dest & " As " & Chr$(34) & "od" & Chr$(34)
+				& " Where b." & sColB_AreaID & " = od." & sColOD_AreaID
+				& " And od." & sColOD_AreaIDStart
+						& " In (Select " & sColB_AreaID & " From " & sSelectionTable & ")"
+	If sOriginAreaType <> "" Then
+		sCmd	= sCmd & " And od." & sColOD_OriginAreaType & " > 0"
+	End If
+
+	sCmd	= sCmd & " Into _tempA NoSelect Hide"
+
+'		Select sAreaIDs "AREA_ID", aOD_AreaID	', Count(*) "Num_Destinations", AggregateCombine(aOD_OBJ)
+'			From sTabBoundary, sTabOrigin2Dest
+'			Where aB_AreaID = aOD_AreaID
+'			And aOD_AreaIDStart In (Select aAreaIDInput From sSelectionTable)
+'				And OBJ
+'			Group By aOD_AreaID
+'			Into _tempA NoSelect Hide
+'	End If
+
+	Call DEBUGPrint(sCmd)
+	Run Command sCmd
+	nNumRows	= TableInfo(_tempA, TAB_INFO_NROWS)
+
+	If nNumRows = 0 Then
+		Call TABClose("_tempA")
+		Exit Function
+	End If
+
+	Call DDFSaveAsTemp("_tempA", TRUE, TRUE, TRUE, FALSE)
+
+	Select COL1, COL2, Count(*) "Num_Destinations", AggregateCombine(OBJ)
+		From _tempA
+		Group By COL2
+		Into sQueryNameArea NoSelect Hide
+
+	Call DDFSaveAsTemp(sQueryNameArea, TRUE, TRUE, TRUE, TRUE)
+	Close Table _tempA
+
+	If sQueryNameLine <> "" Then
+		Select q.*, ConnectObjects(Centroid(oFromPolygon), Centroid(q.OBJ), TRUE) Object
+			From sQueryNameArea As "q"
+			Into sQueryNameLine NoSelect Hide
+	End If
+
+	Call DDFSaveAsTemp(sQueryNameLine, TRUE, TRUE, TRUE, TRUE)
+
+	MENUCreateToQueryTablesFromTab = nNumRows
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "MENUCreateToQueryTablesFromTab")
 	Call ERRShow()
 
 End Function
@@ -826,7 +1056,7 @@ Sub MENUDestination2Origins
 Dim	oPoint, oFrom As Object,
 	aOBJ As Alias,
 	fX, fY As Float,
-	sFrom, sTo, sAreaID, sQueryName, sZoomLayer, sOriginAreaType, sBoundaryAreaIDCol As String,
+	sFrom, sTo, sAreaID, sQueryName, sZoomLayer, sOriginAreaType, sOriginAreaTypeCol, sBoundaryAreaIDCol As String,
 	i, nItem, nMID, nGroupLayerID, nCounts(2) As Integer
 
 OnError GoTo ErrorOccured
@@ -835,13 +1065,13 @@ OnError GoTo ErrorOccured
 	sTo		= "Orig"
 
 	If FrontWindow() = 0 Then
-		Call RBNNotificationShow(PRGIGetApplicationName(), "Please use this tool in a map window!", Notify_Error, 2500)
+		Call RBNNotificationShow(PRGIGetApplicationName(), "Please use this tool in a map window!", Notify_Error, 10000)
 		Exit Sub
 	End If
 
 	nMID = FrontWindow()
 	If Not WindowInfo(nMID, WIN_INFO_TYPE) = WIN_MAPPER Then
-		Call RBNNotificationShow(PRGIGetApplicationName(), "Please use this tool in a map window!", Notify_Error, 2500)
+		Call RBNNotificationShow(PRGIGetApplicationName(), "Please use this tool in a map window!", Notify_Error, 10000)
 		Exit Sub
 	End If
 
@@ -873,13 +1103,7 @@ OnError GoTo ErrorOccured
 
 	oPoint = CreatePoint(fX, fY)
 
-	Call TABClose(sTo & "_DD")
-	Call TABClose(sFrom & "s_DD")
-	Call TABClose(sFrom & "s_Home_DD")
-	Call TABClose(sFrom & "s_Work_DD")
-	Call TABClose(sTo & "_2_" & sFrom & "s_DD")
-	Call TABClose(sTo & "_2_" & sFrom & "s_Home_DD")
-	Call TABClose(sTo & "_2_" & sFrom & "s_WORK_DD")
+	Call DDFCloseTempDDTables()
 
 	sQueryName		= sFrom & "_DD"
 	sBoundaryAreaIDCol	= IIf(COLExists(msTabBoundary, "Area_ID")=TRUE, "Area_ID", "Dest_Area_ID")
@@ -901,17 +1125,18 @@ OnError GoTo ErrorOccured
 	If DDCSplitByWorkerHome() Then
 		For i = 1 To 2
 			sOriginAreaType	= IIf(i = 1, "Home", "Work")
+			sOriginAreaTypeCol	= IIf(i = 1, "PPT_H", "PPT_W")
 			sQueryName		= sTo & "s_" & sOriginAreaType & "_DD"
 
 			nCounts(i)	= MENUCreateToQueryTables( oFrom, sAreaID, sOriginAreaType
 								, msTabBoundary, sBoundaryAreaIDCol
-								, msTabOrigin2Dest, "Origin_Area_ID", "Dest_Area_ID", "Origin_Area_Type"
+								, msTabOrigin2Dest, "Origin_Area_ID", "Dest_Area_ID", sOriginAreaTypeCol	'"Origin_Area_Type"
 								, sQueryName, sFrom & "_2_" & sQueryName)
 			Call DebugPrint(FormatNumber$(nCounts(i)) & " " & sTo & "(s) found for '" & sOriginAreaType & "'.")
 
 			If nCounts(i) = 0 Then
-				Call RBNNotificationShow(PRGIGetApplicationName(), "No " & sTo & " Dynamic Demographic Polygons '" & sOriginAreaType & "' found for Area_ID '" & sAreaID & "'!", Notify_Error, 2500)
-				Call TABClose(sQueryName)
+				Call RBNNotificationShow(PRGIGetApplicationName(), "No " & sTo & " Dynamic Demographic Polygons '" & sOriginAreaType & "' found for Area_ID '" & sAreaID & "'!", Notify_Error, 10000)
+				Call DDFCloseTempDDTables
 				Exit Sub
 			Else
 				Call MENUAddToQueryTablesToMap(nMID, sQueryName, sFrom & "_2_" & sQueryName, sTo & "s", sOriginAreaType)
@@ -937,8 +1162,8 @@ OnError GoTo ErrorOccured
 		Call DebugPrint(FormatNumber$(nCounts(1)) & " " & sTo & "(s) found.")
 
 		If nCounts(1) = 0 Then
-			Call RBNNotificationShow(PRGIGetApplicationName(), "No " & sTo & " Dynamic Demographic Polygons found for Area_ID '" & sAreaID & "'!", Notify_Error, 2500)
-			Call TABClose(sQueryName)
+			Call RBNNotificationShow(PRGIGetApplicationName(), "No " & sTo & " Dynamic Demographic Polygons found for Area_ID '" & sAreaID & "'!", Notify_Error, 10000)
+			Call DDFCloseTempDDTables
 			Exit Sub
 		Else
 			sZoomLayer	= sFrom & "_2_" & sQueryName
@@ -987,12 +1212,179 @@ End Sub
 'Parameters:
 '
 '**********************************************************************************************''
+Sub MENUDestination2OriginsFromSel
+
+Dim	oPoint, oFrom As Object,
+	aOBJ As Alias,
+	sFrom, sTo, sAreaID, sQueryName, sZoomLayer, sSelectionTable, sOriginAreaType, sOriginAreaTypeCol, sBoundaryAreaIDCol As String,
+	i, nItem, nMID, nGroupLayerID, nCounts(2) As Integer
+
+OnError GoTo ErrorOccured
+
+	sFrom	= "Dest"
+	sTo		= "Orig"
+
+	If FrontWindow() = 0 Then
+		Call RBNNotificationShow(PRGIGetApplicationName(), "Please set a map window as the active window!", Notify_Error, 10000)
+		Exit Sub
+	End If
+	nMID = FrontWindow()
+	If Not WindowInfo(nMID, WIN_INFO_TYPE) = WIN_MAPPER Then
+		Call RBNNotificationShow(PRGIGetApplicationName(), "Please set a map window as the active window!", Notify_Error, 10000)
+		Exit Sub
+	End If
+
+	msTabBoundary = TABGetNameFromTabFile(DDCGetBoundaryFile())
+	If msTabBoundary = "" Then
+		If FileExists(DDCGetBoundaryFile()) Then
+			Open Table DDCGetBoundaryFile() Interactive
+		End If
+		msTabBoundary = TABGetNameFromTabFile(DDCGetBoundaryFile())
+		If msTabBoundary = "" Then
+			Exit Sub
+		End If
+	End If
+	msTabOrigin2Dest = TABGetNameFromTabFile(DDCGetOrigin2DestFile())
+	If msTabOrigin2Dest = "" Then
+		If FileExists(DDCGetOrigin2DestFile()) Then
+			Open Table DDCGetOrigin2DestFile() Interactive
+		End If
+		msTabOrigin2Dest = TABGetNameFromTabFile(DDCGetOrigin2DestFile())
+		If msTabOrigin2Dest = "" Then
+			Exit Sub
+		End If
+	End If
+
+	If SelectionInfo(SEL_INFO_NROWS) = 0 Then
+		Call RBNNotificationShow(PRGIGetApplicationName(), "Please select the destination area for the analysis!", Notify_Error, 10000)
+		Exit Sub
+	End If
+	If Not SelectionInfo(SEL_INFO_TABLENAME) = msTabBoundary Then
+		Call RBNNotificationShow(PRGIGetApplicationName(), "Please select the destination area for the analysis from the boundary table, '" & msTabBoundary & "'!", Notify_Error, 10000)
+		Exit Sub
+	End If
+	sSelectionTable	= SelectionInfo(SEL_INFO_SELNAME)
+
+	Call DDFCloseTempDDTables()
+
+	sQueryName		= sFrom & "_DD"
+	sBoundaryAreaIDCol	= IIf(COLExists(msTabBoundary, "Area_ID")=TRUE, "Area_ID", "Dest_Area_ID")
+	sAreaID			= MENUCreateFromQueryTableFromTab(sSelectionTable, msTabBoundary, sBoundaryAreaIDCol, sQueryName)
+	If sAreaID = "" Then
+		Call TABClose(sSelectionTable)
+		Exit Sub
+	End If
+	Call DebugPrint(FormatNumber$(TableInfo(sQueryName, TAB_INFO_NROWS)) & " " & sFrom & "(s) found using " & sAreaID)
+
+	Fetch First From sQueryName
+	aOBJ		= sQueryName & ".OBJ"
+	oFrom	= aOBJ
+
+	Redim mtarrResults(1)
+	mtarrResults(1).sQueryTable 		= sQueryName
+	mtarrResults(1).sToFromType		= sFrom
+	mtarrResults(1).sOriginAreaType	= ""
+
+	If DDCSplitByWorkerHome() Then
+		For i = 1 To 2
+			sOriginAreaType	= IIf(i = 1, "Home", "Work")
+			sOriginAreaTypeCol	= IIf(i = 1, "PPT_H", "PPT_W")
+			sQueryName		= sTo & "s_" & sOriginAreaType & "_DD"
+
+			nCounts(i)	= MENUCreateToQueryTablesFromTab( sSelectionTable, oFrom, sAreaID, sOriginAreaType
+								, msTabBoundary, sBoundaryAreaIDCol
+								, msTabOrigin2Dest, "Origin_Area_ID", "Dest_Area_ID", sOriginAreaTypeCol	'"Origin_Area_Type"
+								, sQueryName, sFrom & "_2_" & sQueryName)
+			Call DebugPrint(FormatNumber$(nCounts(i)) & " " & sTo & "(s) found for '" & sOriginAreaType & "'.")
+
+			If nCounts(i) = 0 Then
+				Call RBNNotificationShow(PRGIGetApplicationName(), "No " & sTo & " Dynamic Demographic Polygons '" & sOriginAreaType & "' found for Area_ID '" & sAreaID & "'!", Notify_Error, 10000)
+				Call TABClose(sSelectionTable)
+				Call DDFCloseTempDDTables
+				Exit Sub
+			Else
+				Call MENUAddToQueryTablesToMap(nMID, sQueryName, sFrom & "_2_" & sQueryName, sTo & "s", sOriginAreaType)
+				nItem	= 2 * i
+				Redim mtarrResults(nItem + 1)
+				mtarrResults(nItem).sQueryTable 		= sQueryName
+				mtarrResults(nItem).sToFromType		= sTo & "s"
+				mtarrResults(nItem).sOriginAreaType	= sOriginAreaType
+				mtarrResults(nItem + 1).sQueryTable 	= sFrom & "_2_" & sQueryName
+				mtarrResults(nItem + 1).sToFromType	= sTo & "s"
+				mtarrResults(nItem + 1).sOriginAreaType	= sOriginAreaType
+			End If
+		Next
+
+		sZoomLayer	= sTo & "s_" & IIf(nCounts(1) > nCounts(2), "Home", "Work") & "_DD"
+	Else
+		sQueryName		= sTo & "s_DD"
+
+		nCounts(1)	= MENUCreateToQueryTablesFromTab( sSelectionTable, oFrom, sAreaID, ""
+							, msTabBoundary, sBoundaryAreaIDCol
+							, msTabOrigin2Dest, "Origin_Area_ID", "Dest_Area_ID", ""
+							, sQueryName, sFrom & "_2_" & sQueryName)
+		Call DebugPrint(FormatNumber$(nCounts(1)) & " " & sTo & "(s) found.")
+
+		If nCounts(1) = 0 Then
+			Call RBNNotificationShow(PRGIGetApplicationName(), "No " & sTo & " Dynamic Demographic Polygons found for Area_ID '" & sAreaID & "'!", Notify_Error, 10000)
+			Call TABClose(sSelectionTable)
+			Call DDFCloseTempDDTables
+			Exit Sub
+		Else
+			sZoomLayer	= sFrom & "_2_" & sQueryName
+
+			Call MENUAddToQueryTablesToMap(nMID, sQueryName, sFrom & "_2_" & sQueryName, sTo & "s", "")
+			nItem	= 2
+			Redim mtarrResults(nItem + 1)
+			mtarrResults(nItem).sQueryTable 		= sQueryName
+			mtarrResults(nItem).sToFromType		= sTo & "s"
+			mtarrResults(nItem).sOriginAreaType	= ""
+			mtarrResults(nItem + 1).sQueryTable 	= sFrom & "_2_" & sQueryName
+			mtarrResults(nItem + 1).sToFromType	= sTo & "s"
+			mtarrResults(nItem + 1).sOriginAreaType	= ""
+		End If
+	End If
+
+	Call MENUAddFromQueryTablesToMap(nMID, mtarrResults(1).sQueryTable, mtarrResults(1).sToFromType)
+
+	Call TABClose(sSelectionTable)
+
+	Call DebugPrint("Zooming to extent of layer '" & sZoomLayer & "'")
+	Set Window nMID Enhanced On
+	Set Map
+		Window nMID
+		Zoom Entire Layer sZoomLayer
+
+	If DDCSplitByWorkerHome() Then
+		Call RBNNotificationShow(PRGIGetApplicationName(), sFrom & " " & sAreaID & " has "
+					& FormatNumber$(nCounts(1)) & " Home " & sTo & "s and "
+					& FormatNumber$(nCounts(2)) & " Work " & sTo & "s"
+				, Notify_Info, 10000)
+	Else
+		Call RBNNotificationShow(PRGIGetApplicationName(), sFrom & " " & sAreaID & " has "
+					& FormatNumber$(nCounts(1)) & " " & sTo & "s"
+				, Notify_Info, 10000)
+	End If
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "MENUDestination2OriginsFromSel")
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Pitney Bowes Business Insight
+'Parameters:
+'
+'**********************************************************************************************''
 Sub MENUOrigin2Destinations
 
 Dim	oPoint, oFrom As Object,
 	aOBJ As Alias,
 	fX, fY As Float,
-	sFrom, sTo, sAreaID, sQueryName, sZoomLayer, sOriginAreaType, sBoundaryAreaIDCol As String,
+	sFrom, sTo, sAreaID, sQueryName, sZoomLayer, sOriginAreaType, sBoundaryAreaIDCol, sOriginAreaTypeCol As String,
 	i, nItem, nMID, nGroupLayerID, nCounts(2) As Integer
 
 OnError GoTo ErrorOccured
@@ -1001,13 +1393,13 @@ OnError GoTo ErrorOccured
 	sTo		= "Dest"
 
 	If FrontWindow() = 0 Then
-		Call RBNNotificationShow(PRGIGetApplicationName(), "Please use this tool in a map window!", Notify_Error, 2500)
+		Call RBNNotificationShow(PRGIGetApplicationName(), "Please use this tool in a map window!", Notify_Error, 10000)
 		Exit Sub
 	End If
 
 	nMID = FrontWindow()
 	If Not WindowInfo(nMID, WIN_INFO_TYPE) = WIN_MAPPER Then
-		Call RBNNotificationShow(PRGIGetApplicationName(), "Please use this tool in a map window!", Notify_Error, 2500)
+		Call RBNNotificationShow(PRGIGetApplicationName(), "Please use this tool in a map window!", Notify_Error, 10000)
 		Exit Sub
 	End If
 
@@ -1039,13 +1431,7 @@ OnError GoTo ErrorOccured
 
 	oPoint = CreatePoint(fX, fY)
 
-	Call TABClose(sTo & "_DD")
-	Call TABClose(sFrom & "s_DD")
-	Call TABClose(sFrom & "s_Home_DD")
-	Call TABClose(sFrom & "s_Work_DD")
-	Call TABClose(sTo & "_2_" & sFrom & "s_DD")
-	Call TABClose(sTo & "_2_" & sFrom & "s_Home_DD")
-	Call TABClose(sTo & "_2_" & sFrom & "s_WORK_DD")
+	Call DDFCloseTempDDTables()
 
 	sQueryName		= sFrom & "_DD"
 	sBoundaryAreaIDCol	= IIf(COLExists(msTabBoundary, "Area_ID")=TRUE, "Area_ID", "Dest_Area_ID")
@@ -1067,17 +1453,18 @@ OnError GoTo ErrorOccured
 	If DDCSplitByWorkerHome() Then
 		For i = 1 To 2
 			sOriginAreaType	= IIf(i = 1, "Home", "Work")
+			sOriginAreaTypeCol	= IIf(i = 1, "PPT_H", "PPT_W")
 			sQueryName		= sTo & "s_" & sOriginAreaType & "_DD"
 
 			nCounts(i)	= MENUCreateToQueryTables( oFrom, sAreaID, sOriginAreaType
 								, msTabBoundary, sBoundaryAreaIDCol
-								, msTabOrigin2Dest, "Dest_Area_ID", "Origin_Area_ID", "Origin_Area_Type"
+								, msTabOrigin2Dest, "Dest_Area_ID", "Origin_Area_ID", sOriginAreaTypeCol	'"Origin_Area_Type"
 								, sQueryName, sFrom & "_2_" & sQueryName)
 			Call DebugPrint(FormatNumber$(nCounts(i)) & " " & sTo & "(s) found for '" & sOriginAreaType & "'.")
 
 			If nCounts(i) = 0 Then
-				Call RBNNotificationShow(PRGIGetApplicationName(), "No " & sTo & " Dynamic Demographic Polygons '" & sOriginAreaType & "' found for Area_ID '" & sAreaID & "'!", Notify_Error, 2500)
-				Call TABClose(sQueryName)
+				Call RBNNotificationShow(PRGIGetApplicationName(), "No " & sTo & " Dynamic Demographic Polygons '" & sOriginAreaType & "' found for Area_ID '" & sAreaID & "'!", Notify_Error, 10000)
+				Call DDFCloseTempDDTables
 				Exit Sub
 			Else
 				Call MENUAddToQueryTablesToMap(nMID, sQueryName, sFrom & "_2_" & sQueryName, sTo & "s", sOriginAreaType)
@@ -1103,8 +1490,8 @@ OnError GoTo ErrorOccured
 		Call DebugPrint(FormatNumber$(nCounts(1)) & " " & sTo & "(s) found.")
 
 		If nCounts(1) = 0 Then
-			Call RBNNotificationShow(PRGIGetApplicationName(), "No " & sTo & " Dynamic Demographic Polygons found for Area_ID '" & sAreaID & "'!", Notify_Error, 2500)
-			Call TABClose(sQueryName)
+			Call RBNNotificationShow(PRGIGetApplicationName(), "No " & sTo & " Dynamic Demographic Polygons found for Area_ID '" & sAreaID & "'!", Notify_Error, 10000)
+			Call DDFCloseTempDDTables
 			Exit Sub
 		Else
 			sZoomLayer	= sFrom & "_2_" & sQueryName

@@ -288,7 +288,14 @@ OnError GoTo ErrorOccured
 	nBoundary		= marrBoundaryTypesDlg(nItemBoundary)
 
 	sPath		= ReadControlValue(CTRL_TXT_MAIN_FOLDER)
+	If sPath = "" Then
+		Exit Sub
+	End If
 	sPath		= FILEGetAbsolutePath(ApplicationDirectory$(), sPath)
+	If Not FILEFileExists(sPath) Then
+		Call DEBUGPrint("DDLDHandler_BoundaryTypeClicked: Folder not found: " & sPath)
+		Exit Sub
+	End If
 
 	Call DEBUGPrint("Boundary Type selected: " & nBoundary & ": " & DDFGetBoundaryDescription(nBoundary))
 	sFile = DDFGetBoundaryFileName(sPath, TRUE, DD_DATATYPE_BOUNDARIES, DD_DAYPART_UNDEFINED, nBoundary, "TAB")
@@ -322,7 +329,14 @@ Dim	sPath As String
 OnError GoTo ErrorOccured
 
 	sPath	= ReadControlValue(CTRL_TXT_MAIN_FOLDER)
+	If sPath = "" Then
+		Exit Sub
+	End If
 	sPath	= FILEGetAbsolutePath(ApplicationDirectory$(), sPath)
+	If Not FILEFileExists(sPath) Then
+		Call DEBUGPrint("DDLDHandler_LoadDataTypes: Folder not found: " & sPath)
+		Exit Sub
+	End If
 
 	Redim marrDatatypesDlg(0)
 	Redim marrDatatypeDescriptionsDlg(0)
@@ -354,7 +368,14 @@ Dim	sPath As String
 OnError GoTo ErrorOccured
 
 	sPath	= ReadControlValue(CTRL_TXT_MAIN_FOLDER)
+	If sPath = "" Then
+		Exit Sub
+	End If
 	sPath	= FILEGetAbsolutePath(ApplicationDirectory$(), sPath)
+	If Not FILEFileExists(sPath) Then
+		Call DEBUGPrint("DDLDHandler_LoadBoundaryTypes: Folder not found: " & sPath)
+		Exit Sub
+	End If
 
 	Redim marrBoundaryTypesDlg(0)
 	Redim marrBoundaryDescriptionsDlg(0)

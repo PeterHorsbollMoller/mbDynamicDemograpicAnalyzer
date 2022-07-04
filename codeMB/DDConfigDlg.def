@@ -4,44 +4,20 @@ Declare Sub DDCSetSplitByWorkerHome(ByVal bValue As Logical)
 Declare Function DDCSplitByWorkerHome() As Logical
 Declare Sub DDCSetBoundaryFile(ByVal sFile As String)
 Declare Function DDCGetBoundaryFile() As String
-'Declare Function DDCGetBoundaryFileName(  ByVal sMainFolder As String
-'								, ByVal bPivoted As Logical
-'								, ByVal nDatatype As Integer
-'								, ByVal nDaypart As Integer
-'								, ByVal sBoundaryType As String	'"HEX", "SA1", "OA", "ERG"
-'								, ByVal sFileType As String		'"TAB", "TXT"
-'								) As String
 
 Declare Sub DDCSetOrigin2DestFile(ByVal sFile As String)
 Declare Function DDCGetOrigin2DestFile() As String
-'Declare Function DDCGetOrigin2DestFileName(	  ByVal sMainFolder As String
-'									, ByVal bPivoted As Logical
-'									, ByVal nDataType As Integer
-'									, ByVal nDaypart As Integer
-'									, ByVal sBoundaryType As String	'"HEX", "SA1", "OA", "ERG"
-'									, ByVal sFileType As String		'"TAB", "TXT"
-'									) As String
+
 Declare Sub DDCSetDDMainDataFolder(ByVal sFolder As String)
 Declare Function DDCGetDDMainDataFolder() As String
 
 Declare Sub DDCSetDayPart(ByVal nDaypart As Integer)
 Declare Function DDCGetDayPart() As Integer
-'Declare Function DDCGetDayDescription(ByVal nDaypart As Integer) As String
-'Declare Function DDCGetDayShortName(ByVal nDaypart As Integer) As String
 
 Declare Sub DDCSetDataType(ByVal nDatatype As Integer)
-Declare Function DDCGetDataType() As Integer
-'Declare Function DDCGetDataTypeDescription(ByVal nDatatype As Integer) As String
-'Declare Function DDCGetDataTypeFolderName( ByVal nDatatype As Integer) As String
-'Declare Function DDCGetDataTypeFolderPath(	  ByVal sMainFolder As String
-'									, ByVal bPivoted As Logical
-'									, ByVal nDataType As Integer
-'									, ByVal sBoundaryType As String	'"HEX", "SA1", "OA", "ERG"
-'									) As String
+Declare Function DDCGetDataType() As Integer		'if 0, don't use Datatypes in the Analysis
 Declare Function DDCGetCurrentDataTypeFolder() As String
-'Declare Function DDCIsDataTypeSplitByDaypart(ByVal nDatatype As Integer) As Logical
-'Declare Function DDCIsDataTypePivoted(ByVal nDatatype As Integer) As Logical
-'
+
 Declare Sub DDCSetBoundaryType(ByVal nBoundaryType As Integer)
 Declare Function DDCGetBoundaryType() As Integer
 

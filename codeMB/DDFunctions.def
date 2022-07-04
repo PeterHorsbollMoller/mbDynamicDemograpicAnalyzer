@@ -1,4 +1,5 @@
-﻿Define	DD_DATATYPE_AGE_GENDER			1
+﻿Define	DD_DATATYPE_UNDEFINED			0
+Define	DD_DATATYPE_AGE_GENDER			1
 Define	DD_DATATYPE_PP_HOUSEHOLD			2
 Define	DD_DATATYPE_PP_INHABITANT		3
 Define	DD_DATATYPE_CS_POTENTIAL			4
@@ -72,3 +73,14 @@ Declare Function DDFIsDataTypeSplitByDaypart(ByVal nDatatype As Integer) As Logi
 Declare Function DDFIsDataTypePivoted(ByVal nDatatype As Integer) As Logical
 
 Declare Function DDFGetLayerTypeFromLayerName(ByVal sLayerName As String) As String
+
+Declare Sub DDFSaveAsTemp( ByVal sTable As String
+					, ByVal bClose As Logical		'Close the original after saving the copy
+					, ByVal bOpen As Logical			'Open the copy after it has been saved, only supported if the original is closed
+					, ByVal bTurnPersistOff As Logical	'Set the table to not get saved to a workspace
+					, ByVal bCleanUpName As Logical	'Converts "_" to " " in the file name
+					)
+Declare Function DDFGetLastTempFileName() As String
+Declare Function DDFGetTempFolder() As String
+Declare Sub DDFCloseTempDDTables()
+

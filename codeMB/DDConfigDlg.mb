@@ -36,6 +36,7 @@ Declare Sub DDCHandler_SelectBoundaryFile
 Declare Sub DDCHandler_SelectOrigin2DestFile
 Declare Sub DDCHandler_SelectMainFolder
 Declare Sub DDCHandler_LayerClicked
+Declare Sub DCCHandler_DataTypeUseClicked
 Declare Sub DDCHandler_DataTypeClicked
 Declare Sub DDCHandler_DaypartClicked
 Declare Sub DDCHandler_BoundaryClicked
@@ -52,6 +53,7 @@ Define	CTRL_CMD_SELECT_ORIG_2_DEST	410
 Define	CTRL_TXT_MAIN_FOLDER		500
 Define	CTRL_CMD_SELECT_MAIN_FOLDER	510
 Define	CTRL_LST_DATATYPES			600
+Define	CTRL_CHK_DATATYPES_USE		610
 Define	CTRL_LST_DAYPART			700
 Define	CTRL_LST_BOUNDARYTYPES		800
 
@@ -132,9 +134,11 @@ DDConfigDlg = FALSE
 			Calling DDCHandler_SelectMainFolder
 
 		'**************************************************************************************
-		Control StaticText
+		Control CheckBox		ID CTRL_CHK_DATATYPES_USE
 			Position 5,30
-			Title "Data Types"
+			Title "Use Data Type"
+			Value (DDCGetDataType() <= DD_NUM_DATATYPES)
+			Calling DCCHandler_DataTypeUseClicked
 		Control ListBox		ID CTRL_LST_DATATYPES
 			Position 5,40		Width 120	Height 40
 			Calling DDCHandler_DataTypeClicked
@@ -149,6 +153,10 @@ DDConfigDlg = FALSE
 			Title From Variable marrDayparts
 			Value DDCGetDayPart()
 
+		Control StaticText
+			Position 5,90
+			Title "For the Time of Day 'Total' and 'Week part', Data Types will get disabled. Orig to Destination will be used."
+
 		'**************************************************************************************
 		Control StaticText
 			Position 220,30
@@ -161,60 +169,47 @@ DDConfigDlg = FALSE
 
 		'**************************************************************************************
 		Control StaticText
-			Position 5,90
-			Title "Boundary MapInfo Tab File"
-'			Hide
+			Position 5,105
+			Title "Boundary Data Type MapInfo Tab File"
 		Control EditText		ID CTRL_TXT_BOUNDARY
-			Position 5,100		Width 335
+			Position 5,115		Width 335
 			Value FILEGetRelativePath(DDCGetDDMainDataFolder(), DDCGetBoundaryFile())
 			Disable
-'			Hide
-'		Control Button			ID CTRL_CMD_SELECT_BOUNDARY
-'			Position 205,15	Width 15	Height 13
-'			Title "..."
-'			Calling DDCHandler_SelectBoundaryFile
-'			Hide
-'
+
 '		'**************************************************************************************
 		Control StaticText
-			Position 5,115
+			Position 5,130
 			Title "Origin to Destination MapInfo Tab File"
 '			Hide
 		Control EditText		ID CTRL_TXT_ORIG_2_DEST
-			Position 5,125		Width 335
+			Position 5,140		Width 335
 			Value FILEGetRelativePath(DDCGetDDMainDataFolder(), DDCGetOrigin2DestFile())
 			Disable
-'			Hide
-'		Control Button			ID CTRL_CMD_SELECT_ORIG_2_DEST
-'			Position 205,40	Width 15	Height 13
-'			Title "..."
-'			Calling DDCHandler_SelectOrigin2DestFile
-'			Hide
 
 		'**************************************************************************************
 		Control CheckBox		ID CTRL_CHK_SPLIT_WORK_HOME
-			Position 5,145
+			Position 5,160
 			Title "Split result by Worker/Home"
 			Value DDCSplitByWorkerHome()
 
 		'**************************************************************************************
 		Control StaticText		ID CTRL_TXT_LAYERS
-			Position 5,160
+			Position 5,175
 			Title "Update Layer Settings"
 		Control ListBox		ID CTRL_LST_LAYERS
-			Position 5,170		Width 335	Height 70
+			Position 5,185		Width 335	Height 70
 			Calling DDCHandler_LayerClicked
 		Control Button			ID CTRL_CMD_UPDATE_LAYER
-			Position 205,240	Width 135
+			Position 205,255	Width 135
 			Title "Read Styles from Layer"
 			Calling DDCHandler_UpdateLayerClicked
 
 		'**************************************************************************************
 		Control OKButton
-			Position 255,260	Width 40
+			Position 255,275	Width 40
 			Calling DDCHandler_OKClicked
 		Control CancelButton
-			Position 300,260	Width 40
+			Position 300,275	Width 40
 
 	If not CommandInfo(CMD_INFO_DLG_OK) Then
 		Exit Function
@@ -282,7 +277,11 @@ OnError GoTo ErrorOccured
 
 	Alter Control CTRL_LST_LAYERS Title From Variable marrOpenLayerNames
 
+	Call DDCHandler_DaypartClicked
+
 	Call DDCHandler_LoadDataTypes
+	Call DCCHandler_DataTypeUseClicked
+
 	Call DDCHandler_LoadBoundaryTypes
 
 	Call DDCHandler_RefreshTableControls
@@ -320,18 +319,23 @@ OnError GoTo ErrorOccured
 	End If
 	Call DDCSetDDMainDataFolder(sPath)
 
-	nItemDatatype	= ReadControlValue(CTRL_LST_DATATYPES)
-	nDatatype		= marrDatatypes(nItemDatatype)
-	nDaypart		= ReadControlValue(CTRL_LST_DAYPART)
 	nBoundary		= ReadControlValue(CTRL_LST_BOUNDARYTYPES)
-
-	Call DDCSetDataType(nDatatype)
-	Call DDCSetDayPart(nDaypart)
+	Call DEBUGPrint("You selected boundary type " & nBoundary & " - " & DDFGetBoundaryDescription(nBoundary))
 	Call DDCSetBoundaryType(nBoundary)
 
-	Call DEBUGPrint("You selected datatype " & nDatatype & " referring to " & DDFGetDataTypeFolderPath(sPath, TRUE, nDatatype, DDCGetBoundaryType()))
+	nDaypart		= ReadControlValue(CTRL_LST_DAYPART)
 	Call DEBUGPrint("You selected daypart " & nDaypart & " - " & DDFGetDaypartDescription(nDaypart))
-	Call DEBUGPrint("You selected boundary type " & nBoundary & " - " & DDFGetBoundaryDescription(nBoundary))
+	Call DDCSetDayPart(nDaypart)
+
+	If ReadControlValue(CTRL_CHK_DATATYPES_USE) Then
+		nItemDatatype	= ReadControlValue(CTRL_LST_DATATYPES)
+		nDatatype		= marrDatatypes(nItemDatatype)
+		Call DEBUGPrint("You selected datatype " & nDatatype & " referring to " & DDFGetDataTypeFolderPath(sPath, TRUE, nDatatype, DDCGetBoundaryType()))
+		Call DDCSetDataType(nDatatype)
+	Else
+		nDatatype		= DD_DATATYPE_BOUNDARIES	'DD_DATATYPE_ORIG_2_DESTINATION
+		Call DDCSetDataType(nDatatype)
+	End If
 
 	Call DDCSetBoundaryFile(DDFGetBoundaryFileName(sPath, TRUE, nDatatype, nDaypart, nBoundary, "TAB"))
 	Call DEBUGPrint("Boundary File: " & DDCGetBoundaryFile())
@@ -373,7 +377,7 @@ End Sub
 '**********************************************************************************************''
 Sub DDCHandler_LoadDataTypes
 
-Dim	nDataType, nFolder, nNumFolders As Integer,
+Dim	nDataTypeItem, nDataType As Integer,
 	sPath As String
 
 OnError GoTo ErrorOccured
@@ -385,7 +389,13 @@ OnError GoTo ErrorOccured
 	Redim marrDataTypeDescriptions(0)
 	If DDFGetDataTypes(sPath, marrDatatypes, marrDataTypeDescriptions) > 0 Then
 		Alter Control CTRL_LST_DATATYPES	Title From Variable marrDataTypeDescriptions
-		Alter Control CTRL_LST_DATATYPES	Value DDCGetDataType()
+
+		If Not ReadControlValue(CTRL_CHK_DATATYPES_USE) Then
+			nDataTypeItem = ARRAYFindValueInteger(marrDatatypes, DDCGetDataType())
+			If nDataTypeItem > 0 Then
+				Alter Control CTRL_LST_DATATYPES	Value nDataTypeItem
+			End If
+		End If
 	Else
 		Alter Control CTRL_LST_DATATYPES	Title From Variable marrDataTypeDescriptions
 		Note "Please select a folder with at least one sub folder!"
@@ -407,8 +417,7 @@ End Sub
 '**********************************************************************************************''
 Sub DDCHandler_LoadBoundaryTypes
 
-Dim	nDataType, nFolder, nNumFolders As Integer,
-	sPath As String
+Dim	sPath As String
 
 OnError GoTo ErrorOccured
 
@@ -430,6 +439,29 @@ OnError GoTo ErrorOccured
 '-------------------------
 ErrorOccured:
 	Call ERRCreate(Err(), Error$(), "DDCHandler_LoadBoundaryTypes")
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub DCCHandler_DataTypeUseClicked
+
+OnError GoTo ErrorOccured
+
+	If ReadControlValue(CTRL_CHK_DATATYPES_USE) Then
+		Alter Control CTRL_LST_DATATYPES Enable
+	Else
+		Alter Control CTRL_LST_DATATYPES Disable
+	End If
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DCCHandler_DataTypeUseClicked")
 	Call ERRShow()
 
 End Sub
@@ -477,6 +509,14 @@ OnError GoTo ErrorOccured
 	If nDaypart = 0 Then
 		Exit Sub
 	End If
+
+	If nDaypart In (DD_DAYPART_TOTAL, DD_DAYPART_WEEKPART) Then
+		Alter Control CTRL_CHK_DATATYPES_USE Value FALSE
+		Alter Control CTRL_CHK_DATATYPES_USE Disable
+	Else
+		Alter Control CTRL_CHK_DATATYPES_USE Enable
+	End If
+	Call DCCHandler_DataTypeUseClicked
 
 	Call DEBUGPrint("You click daypart " & nDaypart & " " & DDFGetDaypartDescription(nDaypart))
 	Call DDCHandler_RefreshTableControls
@@ -529,11 +569,17 @@ Dim	nItemDatatype, nDatatype, nDaypart, nItemBoundary, nBoundary As Integer,
 
 OnError GoTo ErrorOccured
 
-	nItemDatatype	= ReadControlValue(CTRL_LST_DATATYPES)
-	If nItemDatatype = 0 Then
-		Exit Sub
+	If ReadControlValue(CTRL_CHK_DATATYPES_USE) Then
+		nItemDatatype	= ReadControlValue(CTRL_LST_DATATYPES)
+		If nItemDatatype = 0 Then
+			Exit Sub
+		End If
+		nDatatype		= marrDatatypes(nItemDatatype)
+		Call DEBUGPrint("You selected datatype " & nDatatype & " referring to " & DDFGetDataTypeFolderPath(sPath, TRUE, nDatatype, DDCGetBoundaryType()))
+	Else
+		nDatatype		= DD_DATATYPE_BOUNDARIES	'DD_DATATYPE_ORIG_2_DESTINATION
 	End If
-	nDatatype		= marrDatatypes(nItemDatatype)
+
 	nDaypart		= ReadControlValue(CTRL_LST_DAYPART)
 	If nDaypart = 0 Then
 		Exit Sub
@@ -709,8 +755,7 @@ End Sub
 '**********************************************************************************************''
 Sub DDCHandler_SelectMainFolder
 
-Dim	sPath  As String,
-	nFolder, nNumFolders As Integer
+Dim	sPath  As String
 
 OnError GoTo ErrorOccured
 
@@ -888,7 +933,7 @@ Function DDCGetDataType() As Integer
 
 OnError GoTo ErrorOccured
 
-	DDCGetDataType = Maximum(mnDataType, 1)	'Make sure to get minimum 1
+	DDCGetDataType = mnDataType	'if zero, do not use data types in the analysis
 	Exit Function
 '-------------------------
 ErrorOccured:

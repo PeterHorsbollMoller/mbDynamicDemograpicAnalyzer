@@ -1,1 +1,5 @@
-09:28:14 Orig2Dest File: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_GBR_202203\DynamicDemographics_o3_sample_GBR_202203_TXT\data\origin_destination\Pivoted\dd_hex_origin_destination_mor_gbr_p.TAB
+14:32:32 Boundary File: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_GBR_202203\DynamicDemographics_o3_sample_GBR_202203_TXT\data\age_gender\Pivoted\dd_hex_age_gender_mor_gbr_p.TAB
+14:32:32 Orig2Destination File: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_GBR_202203\DynamicDemographics_o3_sample_GBR_202203_TXT\data\origin_destination\Pivoted\dd_hex_origin_destination_mor_gbr_p.TAB
+14:32:38 1 Dest(s) found using 89195d2a313ffff
+14:32:38 Select * From dd_hex_age_gender_mor_gbr_p As "b", dd_hex_origin_destination_mor_ As "od" Where b.Dest_Area_ID = od.Origin_Area_ID And od.Dest_Area_ID And od.Dest_Area_ID = "89195d2a313ffff" And od.PPT_H > 0 Into Origs_Home_DD NoSelect Hide
+14:32:43 0 Orig(s) found for 'Home'.
