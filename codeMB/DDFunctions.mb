@@ -96,6 +96,34 @@ ErrorOccured:
 End Function
 
 '**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
+Function DDFGetBaseBoundaryFileName( ByVal sMainFolder As String
+							, ByVal nBoundaryType As Integer
+							, ByVal sFileType As String		'"TAB", "TXT"
+							) As String
+
+Dim	sFile As String
+
+OnError GoTo ErrorOccured
+
+	sFile = DDFGetBoundaryFileName(sMainFolder, TRUE, DD_DATATYPE_BOUNDARIES, DD_DAYPART_UNDEFINED, nBoundaryType, sFileType)
+
+	DDFGetBaseBoundaryFileName = sFile
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDFGetBaseBoundaryFileName")
+	Call ERRShow()
+
+End Function
+
+'**********************************************************************************************''
 Function DDFGetOrigin2DestFileName(  ByVal sMainFolder As String
 							, ByVal bPivoted As Logical
 							, ByVal nDatatype As Integer

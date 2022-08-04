@@ -513,8 +513,11 @@ OnError GoTo ErrorOccured
 	If nDaypart In (DD_DAYPART_TOTAL, DD_DAYPART_WEEKPART) Then
 		Alter Control CTRL_CHK_DATATYPES_USE Value FALSE
 		Alter Control CTRL_CHK_DATATYPES_USE Disable
+'		Alter Control CTRL_CHK_SPLIT_WORK_HOME Value FALSE
+'		Alter Control CTRL_CHK_SPLIT_WORK_HOME Disable
 	Else
 		Alter Control CTRL_CHK_DATATYPES_USE Enable
+'		Alter Control CTRL_CHK_SPLIT_WORK_HOME Enable
 	End If
 	Call DCCHandler_DataTypeUseClicked
 

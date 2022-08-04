@@ -1,2 +1,5 @@
 ﻿
 Declare Sub DDDataLoading
+
+Declare Function DDDataMinimizeCharColumns(	ByVal sTab As String) As Integer
+

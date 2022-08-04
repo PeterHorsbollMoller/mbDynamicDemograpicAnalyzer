@@ -12,6 +12,14 @@
 '					- Added option to perform an analysis for multiple boundaries resulting in an aggregated view
 '					- The analysis tables are now native tables stored in the temp folder, no longer query tables
 '					- The analysis tables are opened with persist set to off meaning the will not be saved to a workspace
+'04-08-2022 09:28:17	v1.6.5:
+'					- Optimized querying, should cut the time by 90% or more
+'					- Improved data loading to cut down Char column width if they are 10 characters or more wider than necessary
+'					- Added print statements to the data loading to give some feedback to user on loading performance
+'04-08-2022 11:05:39	v1.6.6
+'					- Fixed issue in queries where records without spatial object also where included
+'					- Control for analysis using Selection is now disabled until a selection has been made from the boundary tables
+'					- Cursor for the two tools has been changed to a big crosshair
 '*******************************************************************************
 
 '-------------------------------------
@@ -27,7 +35,7 @@ Include "Library\RibbonElements.def"
 
 Define xProgram 		"Dynamic Demograpic Analyzer"
 Define xProgramMenu		"DynamicDemograpicAnalyzer"
-Define xVersion 		"1.6.0"
+Define xVersion 		"1.6.6"
 Define xYear			"2022"
 Define xAddToMenuBar	FALSE
 
@@ -61,6 +69,7 @@ Declare Sub Main
 Declare Sub MENUEnableDisableControls
 Declare Sub EndProgram
 Declare Sub EndHandler
+Declare Sub SelChangedHandler
 
 Declare Sub MENUConfiguration
 Declare Sub MENUWriteConfigFile
@@ -167,12 +176,12 @@ OnError GoTo ErrorOccured
 		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Create a Destination to Origins Analysis.", "")
 		Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_LARGE, "", ApplicationDirectory$() & "Dest2Origin_64.png")
 		Call RBNControlSetDrawModeIdx(nCtrlIdx, DM_CUSTOM_POINT)
-		Call RBNControlSetMICursorIdx(nCtrlIdx, MI_CURSOR_ARROW, "")
+		Call RBNControlSetMICursorIdx(nCtrlIdx, MI_CURSOR_LRG_CROSSHAIR, "")
 		Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUDestination2Origins")
 	End If
 	nCtrlIdx = RBNGroupAddControl("cmdDDAnalyzerD2OSel", "Destinations to Origins", "", ControlType_Button, sTabName, sGroupName)
 	If nCtrlIdx > 0 Then
-		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Create a Destinations to Origins Analysis using the selection.", "")
+		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Create a Destinations to Origins Analysis using the selection.", "Please select the destination areas for the analysis from the base boundary table!")
 		Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_LARGE, "", ApplicationDirectory$() & "Dest2Origin_64.png")
 		Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUDestination2OriginsFromSel")
 	End If
@@ -182,7 +191,7 @@ OnError GoTo ErrorOccured
 		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Create a Origin to Destinations Analysis.", "")
 		Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_LARGE, "", ApplicationDirectory$() & "Origin2Dest_64.png")
 		Call RBNControlSetDrawModeIdx(nCtrlIdx, DM_CUSTOM_POINT)
-		Call RBNControlSetMICursorIdx(nCtrlIdx, MI_CURSOR_ARROW, "")
+		Call RBNControlSetMICursorIdx(nCtrlIdx, MI_CURSOR_LRG_CROSSHAIR, "")
 		Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUOrigin2Destinations")
 	End If
 
@@ -230,6 +239,8 @@ End Sub
 '**********************************************************************************************''
 Sub MENUEnableDisableControls
 
+Dim	sFile As String
+
 OnError GoTo ErrorOccured
 
 	If DDCGetBoundaryFile() = "" Or DDCGetOrigin2DestFile() = "" Then
@@ -240,6 +251,20 @@ OnError GoTo ErrorOccured
 		Call RBNGroupEnableControls("", "", "cmdDDAnalyzerD2O", TRUE)
 		Call RBNGroupEnableControls("", "", "cmdDDAnalyzerD2OSel", TRUE)
 		Call RBNGroupEnableControls("", "", "cmdDDAnalyzerO2D", TRUE)
+
+		If SelectionInfo(SEL_INFO_NROWS) = 0 Then
+			Call RBNGroupEnableControls("", "", "cmdDDAnalyzerD2OSel", FALSE)
+			Exit Sub
+		End If
+		sFile = DDFGetBaseBoundaryFileName(DDCGetDDMainDataFolder(), DDCGetBoundaryType(), "TAB")
+		If sFile = "" Then
+			Call RBNGroupEnableControls("", "", "cmdDDAnalyzerD2OSel", FALSE)
+			Exit Sub
+		End If
+		If Not SelectionInfo(SEL_INFO_TABLENAME) = PathToTableName$(sFile) Then
+			Call RBNGroupEnableControls("", "", "cmdDDAnalyzerD2OSel", FALSE)
+			Exit Sub
+		End If
 	End If
 
 	Exit Sub
@@ -280,6 +305,24 @@ OnError GoTo ErrorOccured
 '-------------------------
 ErrorOccured:
 	Call ERRCreate(Err(), Error$(), "EndProgram")
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub SelChangedHandler
+
+OnError GoTo ErrorOccured
+
+	Call MENUEnableDisableControls
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SelChangedHandler")
 	Call ERRShow()
 
 End Sub
@@ -610,19 +653,19 @@ MENUCreateFromQueryTable = ""
 				From sTable
 				Where aAreaID = sAreaID
 				And OBJ
-				Into sQueryName NoSelect
+				Into sQueryName NoSelect Hide
 		Case COL_TYPE_INTEGER, COL_TYPE_DECIMAL, COL_TYPE_FLOAT, COL_TYPE_SMALLINT, COL_TYPE_LARGEINT
 			Select *
 				From sTable
 				Where aAreaID = Val(sAreaID)
 				And OBJ
-				Into sQueryName NoSelect
+				Into sQueryName NoSelect Hide
 		Case Else
 			Select *
 				From sTable
 				Where aAreaID = sAreaID
 				And OBJ
-				Into sQueryName NoSelect
+				Into sQueryName NoSelect Hide
 	End Case
 
 	If TableInfo(sQueryName, TAB_INFO_NROWS) = 0 Then
@@ -689,7 +732,7 @@ MENUCreateFromQueryTableFromTab = ""
 		From sTable
 		Where aAreaID In (Select aAreaIDInput From sSelectionTable)
 		And OBJ
-		Into sQueryName NoSelect
+		Into sQueryName NoSelect Hide
 
 	If TableInfo(sQueryName, TAB_INFO_NROWS) = 0 Then
 		Close Table sQueryName
@@ -730,107 +773,74 @@ Function MENUCreateToQueryTables(	  ByVal oFromPolygon As Object		'Polygon of th
 							) As Integer						'Number of Rows Selected, 0 if none were found
 
 Dim	nNumRows As Integer,
-'	aB_AreaID As Alias,
-'	aOD_OriginAreaType, aOD_AreaID, aOD_AreaIDStart As Alias
-	sCmd As String
+	sCmd As String,
+	nTime, nTime1 As Integer
 
 OnError GoTo ErrorOccured
 
 MENUCreateToQueryTables = 0
 
-'	aB_AreaID			= sTabBoundary & "." & sColB_AreaID
+'	sCmd	= "Select *"
+'				& " From " & sTabBoundary & " As " & Chr$(34) & "b" & Chr$(34)
+'					&  ", " & sTabOrigin2Dest & " As " & Chr$(34) & "od" & Chr$(34)
+'				& " Where b." & sColB_AreaID & " = od." & sColOD_AreaID
+'				& " And od." & sColOD_AreaIDStart
+'
+'	If ColumnInfo(sTabOrigin2Dest, sColOD_AreaIDStart, COL_INFO_TYPE) = COL_TYPE_CHAR Then
+'		sCmd = sCmd & " And od." & sColOD_AreaIDStart & " = " & Chr$(34) & sAreaID & Chr$(34)
+'	Else
+'		sCmd = sCmd & " And od." & sColOD_AreaIDStart & " = Val(" & sAreaID & ")"
+'	End If
+'
+'	If sOriginAreaType <> "" Then
+'		sCmd	= sCmd & " And od." & sColOD_OriginAreaType & " > 0"
+'	End If
+'
+'	sCmd	= sCmd & " Into " & sQueryNameArea & " NoSelect Hide"
 
-'	aOD_OriginAreaType	= sTabOrigin2Dest & "." & sColOD_OriginAreaType
-'	aOD_AreaID		= sTabOrigin2Dest & "." & sColOD_AreaID
-'	aOD_AreaIDStart	= sTabOrigin2Dest & "." & sColOD_AreaIDStart
+'	Call DEBUGPrint(sCmd)
+'	Run Command sCmd
 
 	sCmd	= "Select *"
-				& " From " & sTabBoundary & " As " & Chr$(34) & "b" & Chr$(34) &  ", " & sTabOrigin2Dest & " As " & Chr$(34) & "od" & Chr$(34)
-				& " Where b." & sColB_AreaID & " = od." & sColOD_AreaID
-				& " And od." & sColOD_AreaIDStart
+			& " From " & sTabOrigin2Dest
 
 	If ColumnInfo(sTabOrigin2Dest, sColOD_AreaIDStart, COL_INFO_TYPE) = COL_TYPE_CHAR Then
-		sCmd = sCmd & " And od." & sColOD_AreaIDStart & " = " & Chr$(34) & sAreaID & Chr$(34)
+		sCmd = sCmd & " Where " & sColOD_AreaIDStart & " = " & Chr$(34) & sAreaID & Chr$(34)
 	Else
-		sCmd = sCmd & " And od." & sColOD_AreaIDStart & " = Val(" & sAreaID & ")"
+		sCmd = sCmd & " Where " & sColOD_AreaIDStart & " = Val(" & sAreaID & ")"
 	End If
 
 	If sOriginAreaType <> "" Then
-		sCmd	= sCmd & " And od." & sColOD_OriginAreaType & " > 0"
+		sCmd	= sCmd & " And " & sColOD_OriginAreaType & " > 0"
 	End If
 
-	sCmd	= sCmd & " Into " & sQueryNameArea & " NoSelect Hide"
+	sCmd	= sCmd & " And OBJ"
+			& " Into _temp NoSelect Hide"
 
+	nTime	= Timer()
+	nTime1	= Timer()
+	Call DEBUGPrint("Query 1: " & sCmd)
+	Run Command sCmd
+	nNumRows	= TableInfo("_temp", TAB_INFO_NROWS)
+	Call DEBUGPrint("Done 1: " & FormatNumber$(Timer() - nTime1) & " seconds: " & FormatNumber$(nNumRows))
 
-'	'New Query using Join
-'	If sOriginAreaType = "" Then
-'		Call DEBUGPrint("Select * From " & sTabBoundary & ", " & sTabOrigin2Dest
-'					& " Where " & sTabBoundary & "." & sColB_AreaID & " = " & sTabOrigin2Dest & "." & sColOD_AreaID
-'					& " And " & sTabOrigin2Dest & "." & sColOD_AreaIDStart & " = " & Chr$(34) & sAreaID & Chr$(34)
-'					& " And OBJ Into " & sQueryNameArea & " NoSelect")
-'
-'		Do Case ColumnInfo(sTabOrigin2Dest, sColOD_AreaIDStart, COL_INFO_TYPE)
-'			Case COL_TYPE_CHAR
-'				Select *
-'					From sTabBoundary, sTabOrigin2Dest
-'					Where aB_AreaID = aOD_AreaID
-'					And aOD_AreaIDStart = sAreaID
-'					And OBJ
-'					Into sQueryNameArea NoSelect
-'			Case COL_TYPE_INTEGER, COL_TYPE_DECIMAL, COL_TYPE_FLOAT, COL_TYPE_SMALLINT, COL_TYPE_LARGEINT
-'				Select *
-'					From sTabBoundary, sTabOrigin2Dest
-'					Where aB_AreaID = aOD_AreaID
-'					And aOD_AreaIDStart = Val(sAreaID)
-'					And OBJ
-'					Into sQueryNameArea NoSelect
-'			Case Else
-'				Select *
-'					From sTabBoundary, sTabOrigin2Dest
-'					Where aB_AreaID = aOD_AreaID
-'					And aOD_AreaIDStart = sAreaID
-'					And OBJ
-'					Into sQueryNameArea NoSelect
-'		End Case
-'
-'	Else
-'		Call DEBUGPrint("Select * From " & sTabBoundary & ", " & sTabOrigin2Dest
-'					& " Where " & sTabBoundary & "." & sColB_AreaID & " = " & sTabOrigin2Dest & "." & sColOD_AreaID
-'					& " And " & sTabOrigin2Dest & "." & sColOD_OriginAreaType & " > 0"		' & Chr$(34) & sOriginAreaType & Chr$(34)
-'					& " And " & sTabOrigin2Dest & "." & sColOD_AreaIDStart & " = " & Chr$(34) & sAreaID & Chr$(34)
-'					& " And OBJ Into " & sQueryNameArea & " NoSelect")
-'
-'		Do Case ColumnInfo(sTabOrigin2Dest, sColOD_AreaIDStart, COL_INFO_TYPE)
-'			Case COL_TYPE_CHAR
-'				Select *
-'					From sTabBoundary, sTabOrigin2Dest
-'					Where aB_AreaID = aOD_AreaID
-'					And aOD_OriginAreaType > 0	'= sOriginAreaType
-'					And aOD_AreaIDStart = sAreaID
-'					And OBJ
-'					Into sQueryNameArea NoSelect
-'			Case COL_TYPE_INTEGER, COL_TYPE_DECIMAL, COL_TYPE_FLOAT, COL_TYPE_SMALLINT, COL_TYPE_LARGEINT
-'				Select *
-'					From sTabBoundary, sTabOrigin2Dest
-'					Where aB_AreaID = aOD_AreaID
-'					And aOD_OriginAreaType > 0	'sOriginAreaType
-'					And aOD_AreaIDStart = Val(sAreaID)
-'					And OBJ
-'					Into sQueryNameArea NoSelect
-'			Case Else
-'				Select *
-'					From sTabBoundary, sTabOrigin2Dest
-'					Where aB_AreaID = aOD_AreaID
-'					And aOD_OriginAreaType > 0	'sOriginAreaType
-'					And aOD_AreaIDStart = sAreaID
-'					And OBJ
-'					Into sQueryNameArea NoSelect
-'		End Case
-'	End If
+	If nNumRows = 0 Then
+		Call TABClose("_temp")
+		Exit Function
+	End If
 
-	Call DEBUGPrint(sCmd)
+	sCmd	= "Select *"
+			& " From " & sTabBoundary & " As " & Chr$(34) & "b" & Chr$(34)
+				&  ", _temp As " & Chr$(34) & "od" & Chr$(34)
+			& " Where b." & sColB_AreaID & " = od." & sColOD_AreaID
+			& " And b.OBJ"
+			& " Into " & sQueryNameArea & " NoSelect Hide"
+
+	nTime1	= Timer()
+	Call DEBUGPrint("Query 2: " & sCmd)
 	Run Command sCmd
 	nNumRows	= TableInfo(sQueryNameArea, TAB_INFO_NROWS)
+	Call DEBUGPrint("Done 2: " & FormatNumber$(Timer() - nTime1) & " seconds: " & FormatNumber$(nNumRows))
 
 	If nNumRows = 0 Then
 		Call TABClose(sQueryNameArea)
@@ -838,14 +848,20 @@ MENUCreateToQueryTables = 0
 	End If
 
 	Call DDFSaveAsTemp(sQueryNameArea, TRUE, TRUE, TRUE, TRUE)
+	Call TABClose("_temp")
 
 	If sQueryNameLine <> "" Then
+		nTime1	= Timer()
+		Call DEBUGPrint("Query 3: Creating Lines: " & FormatNumber$(CentroidX(oFromPolygon)) & " | " & FormatNumber$(CentroidX(oFromPolygon)))
 		Select q.*, ConnectObjects(Centroid(oFromPolygon), Centroid(q.OBJ), TRUE) Object
 			From sQueryNameArea As "q"
-			Into sQueryNameLine NoSelect
+			Into sQueryNameLine NoSelect Hide
+		Call DEBUGPrint("Done 3: " & FormatNumber$(Timer() - nTime1) & " seconds: " & FormatNumber$(TableInfo(sQueryNameLine, TAB_INFO_NROWS)))
 	End If
 
 	Call DDFSaveAsTemp(sQueryNameLine, TRUE, TRUE, TRUE, TRUE)
+
+	Call DEBUGPrint("MENUCreateToQueryTables, Total: " & FormatNumber$(Timer() - nTime) & " seconds")
 
 	MENUCreateToQueryTables = nNumRows
 
@@ -879,46 +895,68 @@ Function MENUCreateToQueryTablesFromTab(  ByVal sSelectionTable As String		'Tabl
 								) As Integer						'Number of Rows Selected, 0 if none were found
 
 Dim	nNumRows As Integer,
-'	aB_AreaID As Alias,
-'	aOD_OriginAreaType, aOD_AreaID, aOD_AreaIDStart, aAreaIDInput, aOD_OBJ As Alias
-	sCmd As String
+	sCmd As String,
+	nTime, nTime1 As Integer
 
 OnError GoTo ErrorOccured
 
 MENUCreateToQueryTablesFromTab = 0
 
-'	aB_AreaID			= sTabBoundary & "." & sColB_AreaID
-'	aAreaIDInput		= sSelectionTable & "." & sColB_AreaID
+'	sCmd	= "Select " & Chr$(34) & sAreaIDs & Chr$(34) & " " & Chr$(34) & "AREA_ID" & Chr$(34)
+'				& ", od." & sColOD_AreaID
+'				& " From " & sTabBoundary & " As " & Chr$(34) & "b" & Chr$(34)
+'					& ", " & sTabOrigin2Dest & " As " & Chr$(34) & "od" & Chr$(34)
+'				& " Where b." & sColB_AreaID & " = od." & sColOD_AreaID
+'				& " And od." & sColOD_AreaIDStart
+'						& " In (Select " & sColB_AreaID & " From " & sSelectionTable & ")"
+'
+'	If sOriginAreaType <> "" Then
+'		sCmd	= sCmd & " And od." & sColOD_OriginAreaType & " > 0"
+'	End If
+'
+'	sCmd	= sCmd & " Into _tempA NoSelect Hide"
+'
+'	Call DEBUGPrint(sCmd)
+'	Run Command sCmd
 
-'	aOD_OriginAreaType	= sTabOrigin2Dest & "." & sColOD_OriginAreaType
-'	aOD_AreaID		= sTabOrigin2Dest & "." & sColOD_AreaID
-'	aOD_AreaIDStart	= sTabOrigin2Dest & "." & sColOD_AreaIDStart
-'	aOD_OBJ			= sTabOrigin2Dest & ".OBJ"
+	sCmd	= "Select *"
+			& " From " & sTabOrigin2Dest
+			& " Where " & sColOD_AreaIDStart
+					& " In (Select " & sColB_AreaID & " From " & sSelectionTable & ")"
 
-	sCmd	= "Select " & Chr$(34) & sAreaIDs & Chr$(34) & " " & Chr$(34) & "AREA_ID" & Chr$(34)
-				& ", " & sTabOrigin2Dest & "." & sColOD_AreaID
-				& " From " & sTabBoundary & " As " & Chr$(34) & "b" & Chr$(34) &  ", " & sTabOrigin2Dest & " As " & Chr$(34) & "od" & Chr$(34)
-				& " Where b." & sColB_AreaID & " = od." & sColOD_AreaID
-				& " And od." & sColOD_AreaIDStart
-						& " In (Select " & sColB_AreaID & " From " & sSelectionTable & ")"
 	If sOriginAreaType <> "" Then
-		sCmd	= sCmd & " And od." & sColOD_OriginAreaType & " > 0"
+		sCmd	= sCmd & " And " & sColOD_OriginAreaType & " > 0"
 	End If
 
-	sCmd	= sCmd & " Into _tempA NoSelect Hide"
+	sCmd	= sCmd & " And OBJ"
+			& " Into _temp NoSelect Hide"
 
-'		Select sAreaIDs "AREA_ID", aOD_AreaID	', Count(*) "Num_Destinations", AggregateCombine(aOD_OBJ)
-'			From sTabBoundary, sTabOrigin2Dest
-'			Where aB_AreaID = aOD_AreaID
-'			And aOD_AreaIDStart In (Select aAreaIDInput From sSelectionTable)
-'				And OBJ
-'			Group By aOD_AreaID
-'			Into _tempA NoSelect Hide
-'	End If
-
-	Call DEBUGPrint(sCmd)
+	nTime	= Timer()
+	nTime1	= Timer()
+	Call DEBUGPrint("Query 1: " & sCmd)
 	Run Command sCmd
-	nNumRows	= TableInfo(_tempA, TAB_INFO_NROWS)
+	nNumRows	= TableInfo("_temp", TAB_INFO_NROWS)
+	Call DEBUGPrint("Done 1: " & FormatNumber$(Timer() - nTime1) & " seconds: " & FormatNumber$(nNumRows))
+
+	If nNumRows = 0 Then
+		Call TABClose("_temp")
+		Exit Function
+	End If
+
+	sCmd	= "Select " & Chr$(34) & sAreaIDs & Chr$(34) & " " & Chr$(34) & "AREA_ID" & Chr$(34)
+				& ", od." & sColOD_AreaID
+				& " From " & sTabBoundary & " As " & Chr$(34) & "b" & Chr$(34)
+					& ", _temp As " & Chr$(34) & "od" & Chr$(34)
+				& " Where b." & sColB_AreaID & " = od." & sColOD_AreaID
+				& " And b.OBJ"
+				& " Into _tempA NoSelect Hide"
+
+	nTime	= Timer()
+	nTime1	= Timer()
+	Call DEBUGPrint("Query 2: " & sCmd)
+	Run Command sCmd
+	nNumRows	= TableInfo("_tempA", TAB_INFO_NROWS)
+	Call DEBUGPrint("Done 2: " & FormatNumber$(Timer() - nTime1) & " seconds: " & FormatNumber$(nNumRows))
 
 	If nNumRows = 0 Then
 		Call TABClose("_tempA")
@@ -927,18 +965,27 @@ MENUCreateToQueryTablesFromTab = 0
 
 	Call DDFSaveAsTemp("_tempA", TRUE, TRUE, TRUE, FALSE)
 
+	nTime1	= Timer()
+	Call DEBUGPrint("Query 3: Aggregating Objects")
 	Select COL1, COL2, Count(*) "Num_Destinations", AggregateCombine(OBJ)
 		From _tempA
 		Group By COL2
 		Into sQueryNameArea NoSelect Hide
 
+	nNumRows	= TableInfo(sQueryNameArea, TAB_INFO_NROWS)
+	Call DEBUGPrint("Done 3: " & FormatNumber$(Timer() - nTime1) & " seconds: " & FormatNumber$(nNumRows))
+
 	Call DDFSaveAsTemp(sQueryNameArea, TRUE, TRUE, TRUE, TRUE)
-	Close Table _tempA
+	Call TABClose("_tempA")
+	Call TABClose("_temp")
 
 	If sQueryNameLine <> "" Then
+		nTime1	= Timer()
+		Call DEBUGPrint("Query 4: Creating Lines")
 		Select q.*, ConnectObjects(Centroid(oFromPolygon), Centroid(q.OBJ), TRUE) Object
 			From sQueryNameArea As "q"
 			Into sQueryNameLine NoSelect Hide
+		Call DEBUGPrint("Done 4: " & FormatNumber$(Timer() - nTime1) & " seconds: " & FormatNumber$(TableInfo(sQueryNameLine, TAB_INFO_NROWS)))
 	End If
 
 	Call DDFSaveAsTemp(sQueryNameLine, TRUE, TRUE, TRUE, TRUE)

@@ -1,0 +1,84 @@
+﻿Include "MapBasic.def"
+
+Dim	sCmd, sAreaID As String,
+	sTabBoundary, sTabOrigin2Dest, sQueryNameArea As String,
+	sColB_AreaID, sColOD_AreaID, sColOD_AreaIDStart As String,
+	nTime, nTime1, nTime2 As Integer
+
+
+'**Original:
+' Select * From dd_gbr_hex_09 As "b", dd_hex_origin_destination_tot_ As "od"
+' 	Where b.Area_ID = od.Origin_Area_ID
+' 	And od.Dest_Area_ID
+' 	And od.Dest_Area_ID = "89195d2b143ffff"
+' 	Into Origs_DD NoSelect Hide
+
+	sAreaID 			= "89195d2b143ffff"
+	sTabBoundary		= PathToTableName$("D:\3. Demo\2. Maps\Precisely\DynDemog_GBR_Full_202203\Data\dd_gbr_hex_09\dd_gbr_hex_09.tab")
+	sTabOrigin2Dest	= PathToTableName$("D:\3. Demo\2. Maps\Precisely\DynDemog_GBR_Full_202203\Data\dd_hex_origin_destination_aft_gbr_p\dd_hex_origin_destination_aft_gbr_p.tab")
+	sQueryNameArea		= "Origs_DD"
+	sColB_AreaID		= "Area_ID"
+	sColOD_AreaID		= "Origin_Area_ID"
+	sColOD_AreaIDStart	= "Dest_Area_ID"
+
+	If not Ask("Run original query?", "No", "Yes") Then
+		Print "--------------------------------------------------------------------------------------------"
+		sCmd	= "Select *"
+					& " From " & sTabBoundary & " As " & Chr$(34) & "b" & Chr$(34)
+						&  ", " & sTabOrigin2Dest & " As " & Chr$(34) & "od" & Chr$(34)
+					& " Where b." & sColB_AreaID & " = od." & sColOD_AreaID
+	'				& " And od." & sColOD_AreaIDStart
+
+		If ColumnInfo(sTabOrigin2Dest, sColOD_AreaIDStart, COL_INFO_TYPE) = COL_TYPE_CHAR Then
+			sCmd = sCmd & " And od." & sColOD_AreaIDStart & " = " & Chr$(34) & sAreaID & Chr$(34)
+		Else
+			sCmd = sCmd & " And od." & sColOD_AreaIDStart & " = Val(" & sAreaID & ")"
+		End If
+
+		sCmd	= sCmd & " Into " & sQueryNameArea & " NoSelect Hide"
+
+		nTime	= Timer()
+		Print Time(24) & " Start A"
+		Print "Query: " & sCmd
+		Run Command sCmd
+		Print Time(24) & " Done A: " & FormatNumber$(Timer() - nTime) & " seconds: " & TableInfo(sQueryNameArea, TAB_INFO_NROWS)
+		Close Table sQueryNameArea
+	End If
+
+	If not Ask("Run optimized query 1?", "No", "Yes") Then
+		Print "--------------------------------------------------------------------------------------------"
+		sCmd	= "Select *"
+					& " From " & sTabOrigin2Dest
+
+		If ColumnInfo(sTabOrigin2Dest, sColOD_AreaIDStart, COL_INFO_TYPE) = COL_TYPE_CHAR Then
+			sCmd = sCmd & " Where " & sColOD_AreaIDStart & " = " & Chr$(34) & sAreaID & Chr$(34)
+		Else
+			sCmd = sCmd & " Where " & sColOD_AreaIDStart & " = Val(" & sAreaID & ")"
+		End If
+
+		sCmd	= sCmd & " Into _temp NoSelect Hide"
+
+		nTime	= Timer()
+		nTime1	= nTime
+		Print Time(24) & " Start B1"
+		Print "Query: " & sCmd
+		Run Command sCmd
+		Print Time(24) & " Done B1: " & FormatNumber$(Timer() - nTime1) & " seconds: " & TableInfo("_temp", TAB_INFO_NROWS)
+
+		sCmd	= "Select *"
+					& " From " & sTabBoundary & " As " & Chr$(34) & "b" & Chr$(34)
+						&  ", _temp As " & Chr$(34) & "od" & Chr$(34)
+					& " Where b." & sColB_AreaID & " = od." & sColOD_AreaID
+	'				& " And od." & sColOD_AreaIDStart
+
+		sCmd	= sCmd & " Into " & sQueryNameArea & " NoSelect Hide"
+
+		nTime2	= Timer()
+		Print Time(24) & " Start B2"
+		Print "Query: " & sCmd
+		Run Command sCmd
+		Print Time(24) & " Done B2: " & FormatNumber$(Timer() - nTime2) & " seconds: " & TableInfo(sQueryNameArea, TAB_INFO_NROWS)
+		Print Time(24) & " Total B: " & FormatNumber$(Timer() - nTime) & " seconds"
+		Close Table sQueryNameArea
+		Close Table _temp
+	End If

@@ -33,6 +33,11 @@ Declare Function DDFGetBoundaryFileName(  ByVal sMainFolder As String
 								, ByVal nBoundaryType As Integer
 								, ByVal sFileType As String		'"TAB", "TXT"
 								) As String
+Declare Function DDFGetBaseBoundaryFileName(	  ByVal sMainFolder As String
+									, ByVal nBoundaryType As Integer
+									, ByVal sFileType As String		'"TAB", "TXT"
+									) As String
+
 Declare Function DDFGetOrigin2DestFileName(	  ByVal sMainFolder As String
 									, ByVal bPivoted As Logical
 									, ByVal nDataType As Integer
