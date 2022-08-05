@@ -20,6 +20,8 @@
 '					- Fixed issue in queries where records without spatial object also where included
 '					- Control for analysis using Selection is now disabled until a selection has been made from the boundary tables
 '					- Cursor for the two tools has been changed to a big crosshair
+'05-08-2022 13:18:43	v1.6.7
+'					- Issue selecting other boundary types in Configuration dialog fixed
 '*******************************************************************************
 
 '-------------------------------------
@@ -35,7 +37,7 @@ Include "Library\RibbonElements.def"
 
 Define xProgram 		"Dynamic Demograpic Analyzer"
 Define xProgramMenu		"DynamicDemograpicAnalyzer"
-Define xVersion 		"1.6.6"
+Define xVersion 		"1.6.7"
 Define xYear			"2022"
 Define xAddToMenuBar	FALSE
 

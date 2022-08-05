@@ -1,2 +1,38 @@
-12:54:57 Boundary File: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_GBR_202203\DynamicDemographics_o3_sample_GBR_202203_TXT\data\age_gender\Pivoted\dd_hex_age_gender_aft_gbr_p.TAB
-12:54:57 Orig2Destination File: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_GBR_202203\DynamicDemographics_o3_sample_GBR_202203_TXT\data\origin_destination\Pivoted\dd_hex_origin_destination_aft_gbr_p.TAB
+13:27:27 Boundary File: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_GBR_202203\DynamicDemographics_o3_sample_GBR_202203_TXT\data\boundaries\hex\dd_gbr_hex_09.TAB
+13:27:27 Orig2Dest File: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_GBR_202203\DynamicDemographics_o3_sample_GBR_202203_TXT\data\origin_destination\Pivoted\dd_hex_origin_destination_tot_gbr_p.TAB
+13:27:35 You click boundary 3 Output Areas (OA)
+13:27:35 ---------------------------------------
+13:27:35    DDFGetBoundaryFileName: Mask: *dd_*oa*.TAB Folder: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_GBR_202203\DynamicDemographics_o3_sample_GBR_202203_TXT\data\boundaries\oa\
+13:27:35 Boundary File: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_GBR_202203\DynamicDemographics_o3_sample_GBR_202203_TXT\data\boundaries\oa\dd_gbr_oa_2011.TAB
+13:27:35 Orig2Dest File: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_GBR_202203\DynamicDemographics_o3_sample_GBR_202203_TXT\data\origin_destination\Pivoted\dd_oa_origin_destination_tot_gbr_p.TAB
+13:31:38 You click daypart 5 Total
+13:31:38 ---------------------------------------
+13:31:38    DDFGetBoundaryFileName: Mask: *dd_*oa*.TAB Folder: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_GBR_202203\DynamicDemographics_o3_sample_GBR_202203_TXT\data\boundaries\oa\
+13:31:38 Boundary File: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_GBR_202203\DynamicDemographics_o3_sample_GBR_202203_TXT\data\boundaries\oa\dd_gbr_oa_2011.TAB
+13:31:38 Orig2Dest File: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_GBR_202203\DynamicDemographics_o3_sample_GBR_202203_TXT\data\origin_destination\Pivoted\dd_oa_origin_destination_tot_gbr_p.TAB
+13:31:40 You click boundary 3 Output Areas (OA)
+13:31:40 ---------------------------------------
+13:31:40    DDFGetBoundaryFileName: Mask: *dd_*oa*.TAB Folder: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_GBR_202203\DynamicDemographics_o3_sample_GBR_202203_TXT\data\boundaries\oa\
+13:31:40 Boundary File: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_GBR_202203\DynamicDemographics_o3_sample_GBR_202203_TXT\data\boundaries\oa\dd_gbr_oa_2011.TAB
+13:31:40 Orig2Dest File: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_GBR_202203\DynamicDemographics_o3_sample_GBR_202203_TXT\data\origin_destination\Pivoted\dd_oa_origin_destination_tot_gbr_p.TAB
+13:31:45 You selected boundary type 3 - Output Areas (OA)
+13:31:45 You selected daypart 5 - Total
+13:31:45    DDFGetBoundaryFileName: Mask: *dd_*oa*.TAB Folder: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_GBR_202203\DynamicDemographics_o3_sample_GBR_202203_TXT\data\boundaries\oa\
+13:31:45 Boundary File: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_GBR_202203\DynamicDemographics_o3_sample_GBR_202203_TXT\data\boundaries\oa\dd_gbr_oa_2011.TAB
+13:31:45 Orig2Destination File: D:\3. Demo\2. Maps\Precisely\DynamicDemographics_GBR_202203\DynamicDemographics_o3_sample_GBR_202203_TXT\data\origin_destination\Pivoted\dd_oa_origin_destination_tot_gbr_p.TAB
+13:32:04 1 Dest(s) found using E00082619
+13:32:04 Query 1: Select * From dd_oa_origin_destination_tot_g Where Dest_Area_ID = "E00082619" And OBJ Into _temp NoSelect Hide
+13:32:04 Done 1: 0 seconds: 76
+13:32:04 Query 2: Select * From dd_gbr_oa_2011 As "b", _temp As "od" Where b.Area_ID = od.Origin_Area_ID And b.OBJ Into Origs_DD NoSelect Hide
+13:32:04 Done 2: 0 seconds: 74
+13:32:04 Query 3: Creating Lines: -0,981355 | -0,981355
+13:32:04 Done 3: 0 seconds: 74
+13:32:04 MENUCreateToQueryTables, Total: 0 seconds
+13:32:04 74 Orig(s) found.
+13:32:05 Set Map Window 3677 Layer 1  Label Auto Off Auto Retry Off Line Arrow Pen (1, 2, 0) Position Center Right Offset 8 Font ("Precisely",0,10,0) Parallel Off Visibility On Overlap Off PartialSegments On Duplicates On Max 2147483647 LabelAlpha 255 AutoPosition Off AutoSizes 1 AutoSizeStep 2 SuppressIfNoFit Off AutoCallout Off
+13:32:05 Set Map Window 3677 Layer 1  Label With AREA_ID Abbreviation Off Abbreviate with AREA_ID
+13:32:05 Set Map Window 3677 Layer 2  Label Auto Off Auto Retry Off Pen (1, 2, 0) Position Center Right Offset 8 Font ("Precisely",0,10,0) Parallel Off Visibility On Overlap Off PartialSegments On Duplicates On Max 2147483647 LabelAlpha 255 AutoPosition Off AutoSizes 1 AutoSizeStep 2 SuppressIfNoFit Off AutoCallout Off
+13:32:05 Set Map Window 3677 Layer 2  Label With AREA_ID Abbreviation Off Abbreviate with AREA_ID
+13:32:05 Set Map Window 3677 Layer 1  Label Auto Off Auto Retry Off Pen (1, 2, 0) Position Center Right Offset 8 Font ("Precisely",0,10,0) Parallel Off Visibility On Overlap Off PartialSegments On Duplicates On Max 2147483647 LabelAlpha 255 AutoPosition Off AutoSizes 1 AutoSizeStep 2 SuppressIfNoFit Off AutoCallout Off
+13:32:05 Set Map Window 3677 Layer 1  Label With Area_ID Abbreviation Off Abbreviate with Area_ID
+13:32:05 Zooming to extent of layer 'Dest_2_Origs_DD'

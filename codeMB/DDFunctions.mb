@@ -73,7 +73,7 @@ DDFGetBoundaryFileName = ""
 			sMask	= "*" & "dd_*" & sBoundaryType & "*." & sFileType
 	End Case
 
-'	Call DEBUGPrint("   DDFGetBoundaryFileName: Mask: " & sMask)
+	Call DEBUGPrint("   DDFGetBoundaryFileName: Mask: " & sMask & " Folder: " & sPath)
 	nNumFiles = FILEFindFilesInFolder(sPath, sMask)
 	Do Case nNumFiles
 		Case 0

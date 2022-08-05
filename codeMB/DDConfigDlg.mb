@@ -301,7 +301,7 @@ End Sub
 '**********************************************************************************************''
 Sub DDCHandler_OKClicked
 
-Dim	nMID, nLayer, nItemDatatype, nDatatype, nDaypart, nBoundary As Integer,
+Dim	nMID, nLayer, nItemDatatype, nDatatype, nDaypart, nItemBoundary, nBoundary As Integer,
 	sPath, sFile As String
 
 OnError GoTo ErrorOccured
@@ -319,7 +319,11 @@ OnError GoTo ErrorOccured
 	End If
 	Call DDCSetDDMainDataFolder(sPath)
 
-	nBoundary		= ReadControlValue(CTRL_LST_BOUNDARYTYPES)
+	nItemBoundary	= ReadControlValue(CTRL_LST_BOUNDARYTYPES)
+	If nItemBoundary = 0 Then
+		Exit Sub
+	End If
+	nBoundary		= marrBoundaryTypes(nItemBoundary)
 	Call DEBUGPrint("You selected boundary type " & nBoundary & " - " & DDFGetBoundaryDescription(nBoundary))
 	Call DDCSetBoundaryType(nBoundary)
 
