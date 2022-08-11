@@ -89,3 +89,7 @@ Declare Function DDFGetLastTempFileName() As String
 Declare Function DDFGetTempFolder() As String
 Declare Sub DDFCloseTempDDTables()
 
+Declare Function DDFGetPreferenceDistanceUnit() As String		'Returns "km", "mi", "m" or similar
+
+
+

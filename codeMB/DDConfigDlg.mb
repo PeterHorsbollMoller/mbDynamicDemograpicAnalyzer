@@ -421,18 +421,29 @@ End Sub
 '**********************************************************************************************''
 Sub DDCHandler_LoadBoundaryTypes
 
-Dim	sPath As String
+Dim	sPath As String,
+	nItemBoundary, nBoundaryType As Integer
 
 OnError GoTo ErrorOccured
 
 	sPath	= ReadControlValue(CTRL_TXT_MAIN_FOLDER)
 	sPath	= FILEGetAbsolutePath(ApplicationDirectory$(), sPath)
 
+	nItemBoundary = ReadControlValue(CTRL_LST_BOUNDARYTYPES)
+	If nItemBoundary = 0 Then
+		nBoundaryType = DDCGetBoundaryType()
+	Else
+		nBoundaryType = marrBoundaryTypes(nItemBoundary)
+	End If
+
 	Redim marrBoundaryTypes(0)
 	Redim marrBoundaryDescriptions(0)
 	If DDFGetBoundaryTypes(sPath, marrBoundaryTypes(), marrBoundaryDescriptions()) > 0 Then
 		Alter Control CTRL_LST_BOUNDARYTYPES	Title From Variable marrBoundaryDescriptions
-		Alter Control CTRL_LST_BOUNDARYTYPES	Value DDCGetBoundaryType()
+		nItemBoundary	= ARRAYFindValueInteger(marrBoundaryTypes(), nBoundaryType)
+		If nItemBoundary > 0 Then
+			Alter Control CTRL_LST_BOUNDARYTYPES	Value nItemBoundary
+		End If
 	Else
 		Alter Control CTRL_LST_BOUNDARYTYPES	Title From Variable marrBoundaryDescriptions
 		Note "Please select a folder with at least one sub folder!"
@@ -487,7 +498,7 @@ OnError GoTo ErrorOccured
 	End If
 	nDatatype		= marrDatatypes(nItemDatatype)
 
-	Call DEBUGPrint("You click datatype " & nDatatype & " " & DDFGetDataTypeDescription(nDatatype))
+'	Call DEBUGPrint("You clicked datatype " & nDatatype & " " & DDFGetDataTypeDescription(nDatatype))
 	Call DDCHandler_RefreshTableControls
 
 	Exit Sub
@@ -525,7 +536,7 @@ OnError GoTo ErrorOccured
 	End If
 	Call DCCHandler_DataTypeUseClicked
 
-	Call DEBUGPrint("You click daypart " & nDaypart & " " & DDFGetDaypartDescription(nDaypart))
+'	Call DEBUGPrint("You clicked daypart " & nDaypart & " " & DDFGetDaypartDescription(nDaypart))
 	Call DDCHandler_RefreshTableControls
 
 	Exit Sub
@@ -553,7 +564,7 @@ OnError GoTo ErrorOccured
 	End If
 	nBoundary		= marrBoundaryTypes(nItemBoundary)
 
-	Call DEBUGPrint("You click boundary " & nBoundary & " " & DDFGetBoundaryDescription(nBoundary))
+'	Call DEBUGPrint("You clicked boundary " & nBoundary & " " & DDFGetBoundaryDescription(nBoundary))
 	Call DDCHandler_RefreshTableControls
 
 	Exit Sub
@@ -582,7 +593,7 @@ OnError GoTo ErrorOccured
 			Exit Sub
 		End If
 		nDatatype		= marrDatatypes(nItemDatatype)
-		Call DEBUGPrint("You selected datatype " & nDatatype & " referring to " & DDFGetDataTypeFolderPath(sPath, TRUE, nDatatype, DDCGetBoundaryType()))
+'		Call DEBUGPrint("You selected datatype " & nDatatype & " referring to " & DDFGetDataTypeFolderPath(sPath, TRUE, nDatatype, DDCGetBoundaryType()))
 	Else
 		nDatatype		= DD_DATATYPE_BOUNDARIES	'DD_DATATYPE_ORIG_2_DESTINATION
 	End If
@@ -599,13 +610,13 @@ OnError GoTo ErrorOccured
 	sPath		= ReadControlValue(CTRL_TXT_MAIN_FOLDER)
 	sPath		= FILEGetAbsolutePath(ApplicationDirectory$(), sPath)
 
-	Call DEBUGPrint("---------------------------------------")
+'	Call DEBUGPrint("---------------------------------------")
 	sFile	= DDFGetBoundaryFileName(sPath, TRUE, nDatatype, nDaypart, nBoundary, "TAB")
-	Call DEBUGPrint("Boundary File: " & sFile)
+'	Call DEBUGPrint("Boundary File: " & sFile)
 	Alter Control CTRL_TXT_BOUNDARY	Value FILEGetRelativePath(sPath, sFile)
 
 	sFile	= DDFGetOrigin2DestFileName(sPath, TRUE, DD_DATATYPE_ORIG_2_DESTINATION, nDaypart, nBoundary, "TAB")
-	Call DEBUGPrint("Orig2Dest File: " & sFile)
+'	Call DEBUGPrint("Orig2Dest File: " & sFile)
 	Alter Control CTRL_TXT_ORIG_2_DEST	Value FILEGetRelativePath(sPath, sFile)
 
 	Exit Sub

@@ -70,9 +70,9 @@ OnError GoTo ErrorOccured
 
 	'**B O U N D A R I E S
 	Print "-------------------------------------------"
-	Print "Process 1 of 3: Boundary File"
+	Print Time(24) & " Process 1 of 3: Boundary File"
 	If DDLDLoadBoundaryFiles() Then
-		Call DEBUGPrint("-------------------------------------------")
+'		Call DEBUGPrint("-------------------------------------------")
 		'**"\boundaries\<boundary type>\"
 		sPath		= DDFGetDataTypeFolderPath(DDCGetDDMainDataFolder(), TRUE, DD_DATATYPE_BOUNDARIES, nBoundaryType)
 '		Call DEBUGPrint(DDCGetDataTypeDescription(DD_DATATYPE_BOUNDARIES) & ": Path '" & sPath & "'")
@@ -85,7 +85,7 @@ OnError GoTo ErrorOccured
 		sFileNoExt	= Left$(sFileNoExt, Len(sFileNoExt) - 4)
 		sTable		= PathToTableName$(sFile)
 
-		Call DEBUGPrint(DDFGetDataTypeDescription(DD_DATATYPE_BOUNDARIES) & ": Loading from '" & PathToFileName$(sFile) & "' into '" & sPath & sFileNoExt & ".tab'")
+'		Call DEBUGPrint(DDFGetDataTypeDescription(DD_DATATYPE_BOUNDARIES) & ": Loading from '" & PathToFileName$(sFile) & "' into '" & sPath & sFileNoExt & ".tab'")
 		Print Time(24) & " 1 of 1: Loading " & DDFGetDataTypeDescription(DD_DATATYPE_BOUNDARIES) & ": " & PathToFileName$(sFile)
 
 		Register Table sFile
@@ -99,21 +99,25 @@ OnError GoTo ErrorOccured
 			CoordSys Earth Projection 1, 104
 			Into sTempFolder & "_temp.tab"
 
+		Print Time(24) & "   Opening TXT file..."
 		Open Table sTempFolder & "_temp.tab"
-		Call DEBUGPrint("Commit Table _temp As " & sPath & sFileNoExt & ".tab Type NATIVEX")
+'		Call DEBUGPrint("Commit Table _temp As " & sPath & sFileNoExt & ".tab Type NATIVEX")
+		Print Time(24) & "   Saving into NativeX Tab file..."
 		Commit Table _temp As sPath & sFileNoExt & ".tab" Type NATIVEX
 		Close Table _temp
 		Open Table sPath & sFileNoExt & ".tab"
+		Print Time(24) & "   Minimizing Char columns..."
 		nCharsSaved = DDDataMinimizeCharColumns(sTable)
+		Print Time(24) & "   Indexing Area_ID column..."
 		Create Index On sTable (AREA_ID)
-		Call DEBUGPrint("   Data loaded! '" & sTable & "' holds " & FormatNumber$(TableInfo(sTable, TAB_INFO_NROWS)) & " records.")
+'		Call DEBUGPrint("   Data loaded! '" & sTable & "' holds " & FormatNumber$(TableInfo(sTable, TAB_INFO_NROWS)) & " records.")
 		Close Table sTable
 	Else
-		Print "Not configured to run"
+		Print Time(24) & " Not configured to run"
 	End If
 
-	Call DEBUGPrint("-------------------------------------------")
-	Call DEBUGPrint(DDFGetDataTypeDescription(DD_DATATYPE_BOUNDARIES) & ": Opening... ")
+'	Call DEBUGPrint("-------------------------------------------")
+'	Call DEBUGPrint(DDFGetDataTypeDescription(DD_DATATYPE_BOUNDARIES) & ": Opening... ")
 	sFile			= DDFGetBoundaryFileName(DDCGetDDMainDataFolder(), TRUE, DD_DATATYPE_BOUNDARIES, 0, nBoundaryType, "TAB")
 	sTabBoundary		= PathToTableName$(sFile)
 	If Not TABIsOpen(sTabBoundary) Then
@@ -127,9 +131,9 @@ OnError GoTo ErrorOccured
 
 	'**O R I G I N    T O    D E S T I N A T I O N S
 	Print "-------------------------------------------"
-	Print "Process 2 of 3: Origin To Destination Files"
+	Print Time(24) & " Process 2 of 3: Origin To Destination Files"
 	If DDLDLoadOrig2DestFiles() Then
-		Call DEBUGPrint("-------------------------------------------")
+'		Call DEBUGPrint("-------------------------------------------")
 		sPath		= DDFGetDataTypeFolderPath(DDCGetDDMainDataFolder(), TRUE, DD_DATATYPE_ORIG_2_DESTINATION, nBoundaryType)
 		For nDaypart = 1 To DD_NUM_DAYPARTS
 			sFile		= DDFGetBoundaryFileName(DDCGetDDMainDataFolder(), TRUE, DD_DATATYPE_ORIG_2_DESTINATION, nDaypart, nBoundaryType, "TXT")
@@ -138,7 +142,7 @@ OnError GoTo ErrorOccured
 				sFileNoExt	= Left$(sFileNoExt, Len(sFileNoExt) - 4)
 				sTable		= PathToTableName$(sFile)
 
-				Call DEBUGPrint(nDaypart & ": " & DDFGetDataTypeDescription(DD_DATATYPE_ORIG_2_DESTINATION) & ": Loading from '" & PathToFileName$(sFile) & "' into '" & sFileNoExt & ".tab'")
+'				Call DEBUGPrint(nDaypart & ": " & DDFGetDataTypeDescription(DD_DATATYPE_ORIG_2_DESTINATION) & ": Loading from '" & PathToFileName$(sFile) & "' into '" & sFileNoExt & ".tab'")
 				Print Time(24) & " " & nDaypart & " of " & DD_NUM_DAYPARTS & ": Loading " & DDFGetDataTypeDescription(DD_DATATYPE_ORIG_2_DESTINATION) & ": " & PathToFileName$(sFile)
 
 				Register Table sFile
@@ -150,44 +154,62 @@ OnError GoTo ErrorOccured
 					Charset "WindowsLatin1"
 					Into sTempFolder & "_temp.tab"
 
+				If nDaypart = 1 Then
+					Print Time(24) & "   Opening TXT file..."
+				End If
 				Open Table sTempFolder & "_temp.tab"
+				If nDaypart = 1 Then
+					Print Time(24) & "   Saving into NativeX Tab file..."
+				End If
 				Commit Table _temp As sTempFolder & "_tempNative.tab" Type NATIVEX
 				Close Table _temp
 				Open Table sTempFolder & "_tempNative.tab"
+				If nDaypart = 1 Then
+					Print Time(24) & "   Minimizing Char Columns..."
+				End If
 				nCharsSaved = DDDataMinimizeCharColumns("_tempNative")
-				Call DEBUGPrint("   Data loaded! '" & sTable & "' holds " & FormatNumber$(TableInfo(_tempNative, TAB_INFO_NROWS)) & " records.")
+'				Call DEBUGPrint("   Data loaded! '" & sTable & "' holds " & FormatNumber$(TableInfo(_tempNative, TAB_INFO_NROWS)) & " records.")
 
+				If nDaypart = 1 Then
+					Print Time(24) & "   Joining with Boundaries..."
+				End If
 				Select d.*
 					From sTabBoundary As "b", _tempNative As "d"
 					Where b.AREA_ID = d.DEST_AREA_ID
 					Into __JOINED NoSelect
 
+				If nDaypart = 1 Then
+					Print Time(24) & "   Saving Joined Result into NativeX Tab file..."
+				End If
 				Commit Table "__JOINED" As sPath & sFileNoExt & ".tab" Type NATIVEX
 				Close Table _tempNative
 				Open Table sPath & sFileNoExt & ".tab"
+				If nDaypart = 1 Then
+					Print Time(24) & "   Indexing Dest_Area_ID and Origin_Area_ID columns..."
+				End If
 				Create Index On sTable (DEST_AREA_ID)
 				Create Index On sTable (ORIGIN_AREA_ID)
-				Call DEBUGPrint("   Data joined with boundaries! '" & sTable & "' holds " & FormatNumber$(TableInfo(sTable, TAB_INFO_NROWS)) & " records.")
+'				Call DEBUGPrint("   Data joined with boundaries! '" & sTable & "' holds " & FormatNumber$(TableInfo(sTable, TAB_INFO_NROWS)) & " records.")
 				Close Table sTable
 			Else
-				Print nDaypart & ": " & DDFGetDaypartDescription(nDaypart) & " - " & DDFGetDataTypeDescription(DD_DATATYPE_ORIG_2_DESTINATION) & ": File Not Found!"
+				Print Time(24) & " " & nDaypart & ": " & DDFGetDaypartDescription(nDaypart) & " - " & DDFGetDataTypeDescription(DD_DATATYPE_ORIG_2_DESTINATION) & ": File Not Found!"
 			End If
 		Next
 	Else
-		Print "Not configured to run"
+		Print Time(24) & " Not configured to run"
 	End If
 
 	'**D A T A    F I L E S
 	Print "-------------------------------------------"
-	Print "Process 3 of 3: Data Files"
+	Print Time(24) & " Process 3 of 3: Data Files"
 	If DDLDGetNumberOfDataFiles() = 0 Then
-		Print "Not configured to run"
+		Print Time(24) & " Not configured to run"
 	End If
 
 	For nFile = 1 To DDLDGetNumberOfDataFiles()
-		Call DEBUGPrint("-------------------------------------------")
+'		Call DEBUGPrint("-------------------------------------------")
 		Print "-------------------------------------------"
-		Print "Sub Process " & nFile & " of " & DDLDGetNumberOfDataFiles()
+		Print Time(24) & " Sub Process " & nFile & " of " & DDLDGetNumberOfDataFiles()
 		nDatatype		= DDLDGetDataType(nFile)
 		sPath		= DDFGetDataTypeFolderPath(DDCGetDDMainDataFolder(), TRUE, nDatatype, nBoundaryType)
 		If DDFIsDataTypeSplitByDaypart(DDLDGetDataType(nFile)) Then
@@ -198,7 +220,7 @@ OnError GoTo ErrorOccured
 					sFileNoExt	= Left$(sFileNoExt, Len(sFileNoExt) - 4)
 					sTable		= PathToTableName$(sFile)
 
-					Call DEBUGPrint(nDaypart & ": " & DDFGetDataTypeDescription(nDatatype) & ": Loading from '" & PathToFileName$(sFile) & "' into '" & sFileNoExt & ".tab'")
+'					Call DEBUGPrint(nDaypart & ": " & DDFGetDataTypeDescription(nDatatype) & ": Loading from '" & PathToFileName$(sFile) & "' into '" & sFileNoExt & ".tab'")
 					Print Time(24) & " " & nDaypart & " of " & DD_NUM_DAYPARTS & ": Loading " & DDFGetDataTypeDescription(nDatatype) & ": " & PathToFileName$(sFile)
 
 					Register Table sFile
@@ -210,26 +232,44 @@ OnError GoTo ErrorOccured
 						Charset "WindowsLatin1"
 						Into sTempFolder & "_temp.tab"
 
+					If nDaypart = 1 Then
+						Print Time(24) & "   Opening TXT file..."
+					End If
 					Open Table sTempFolder & "_temp.tab"
+					If nDaypart = 1 Then
+						Print Time(24) & "   Saving into NativeX Tab file..."
+					End If
 					Commit Table _temp As sTempFolder & "_tempNative.tab" Type NATIVEX
 					Close Table _temp
 					Open Table sTempFolder & "_tempNative.tab"
+					If nDaypart = 1 Then
+						Print Time(24) & "   Minimizing Char Columns..."
+					End If
 					nCharsSaved = DDDataMinimizeCharColumns("_tempNative")
-					Call DEBUGPrint("   Data loaded! '" & sTable & "' holds " & FormatNumber$(TableInfo(_tempNative, TAB_INFO_NROWS)) & " records.")
+'					Call DEBUGPrint("   Data loaded! '" & sTable & "' holds " & FormatNumber$(TableInfo(_tempNative, TAB_INFO_NROWS)) & " records.")
 
+					If nDaypart = 1 Then
+						Print Time(24) & "   Joining with Boundaries..."
+					End If
 					Select d.*
 						From sTabBoundary As "b", _tempNative As "d"
 						Where b.AREA_ID = d.DEST_AREA_ID
 						Into __JOINED NoSelect
 
+					If nDaypart = 1 Then
+						Print Time(24) & "   Saving Joined Result into NativeX Tab file..."
+					End If
 					Commit Table "__JOINED" As sPath & sFileNoExt & ".tab" Type NATIVEX
 					Close Table _tempNative
 					Open Table sPath & sFileNoExt & ".tab"
+					If nDaypart = 1 Then
+						Print Time(24) & "   Indexing Dest_Area_ID column..."
+					End If
 					Create Index On sTable (DEST_AREA_ID)
-					Call DEBUGPrint("   Data joined with boundaries! '" & sTable & "' holds " & FormatNumber$(TableInfo(sTable, TAB_INFO_NROWS)) & " records.")
+'					Call DEBUGPrint("   Data joined with boundaries! '" & sTable & "' holds " & FormatNumber$(TableInfo(sTable, TAB_INFO_NROWS)) & " records.")
 					Close Table sTable
 				Else
-					Print nDaypart & ": " & DDFGetDaypartDescription(nDaypart) & " - " & DDFGetDataTypeDescription(nDatatype) & ": File Not Found!"
+					Print Time(24) & " " & nDaypart & ": " & DDFGetDaypartDescription(nDaypart) & " - " & DDFGetDataTypeDescription(nDatatype) & ": File Not Found!"
 				End If
 			Next
 		Else
@@ -240,7 +280,7 @@ OnError GoTo ErrorOccured
 				sFileNoExt	= Left$(sFileNoExt, Len(sFileNoExt) - 4)
 				sTable		= PathToTableName$(sFile)
 
-				Call DEBUGPrint(DDFGetDataTypeDescription(nDatatype) & ": Loading from '" & PathToFileName$(sFile) & "' into '" & sFileNoExt & ".tab'")
+'				Call DEBUGPrint(DDFGetDataTypeDescription(nDatatype) & ": Loading from '" & PathToFileName$(sFile) & "' into '" & sFileNoExt & ".tab'")
 				Print Time(24) & " 1 of 1: Loading " & DDFGetDataTypeDescription(nDatatype) & ": " & PathToFileName$(sFile)
 
 				Register Table sFile
@@ -252,32 +292,38 @@ OnError GoTo ErrorOccured
 					Charset "WindowsLatin1"
 					Into sTempFolder & "_temp.tab"
 
+				Print Time(24) & "   Opening TXT file..."
 				Open Table sTempFolder & "_temp.tab"
+				Print Time(24) & "   Saving into NativeX Tab file..."
 				Commit Table _temp As sTempFolder & "_tempNative.tab" Type NATIVEX
 				Close Table _temp
 				Open Table sTempFolder & "_tempNative.tab"
+				Print Time(24) & "   Minimizing Char Columns..."
 				nCharsSaved = DDDataMinimizeCharColumns("_tempNative")
-				Call DEBUGPrint("   Data loaded! '" & sTable & "' holds " & FormatNumber$(TableInfo(_tempNative, TAB_INFO_NROWS)) & " records.")
+'				Call DEBUGPrint("   Data loaded! '" & sTable & "' holds " & FormatNumber$(TableInfo(_tempNative, TAB_INFO_NROWS)) & " records.")
 
+				Print Time(24) & "   Joining with Boundaries..."
 				Select d.*
 					From sTabBoundary As "b", _tempNative As "d"
 					Where b.AREA_ID = d.DEST_AREA_ID
 					Into __JOINED NoSelect
+				Print Time(24) & "   Saving Joined Result into NativeX Tab file..."
 				Commit Table "__JOINED" As sPath & sFileNoExt & ".tab" Type NATIVEX
 				Close Table _tempNative
 				Open Table sPath & sFileNoExt & ".tab"
+				Print Time(24) & "   Indexing Dest_Area_ID column..."
 				Create Index On sTable (DEST_AREA_ID)
-				Call DEBUGPrint("   Data joined with boundaries! '" & sTable & "' holds " & FormatNumber$(TableInfo(sTable, TAB_INFO_NROWS)) & " records.")
+'				Call DEBUGPrint("   Data joined with boundaries! '" & sTable & "' holds " & FormatNumber$(TableInfo(sTable, TAB_INFO_NROWS)) & " records.")
 				Close Table sTable
 			Else
-				Print DDFGetDataTypeDescription(nDatatype) & ": File Not Found!"
+				Print Time(24) & " " & DDFGetDataTypeDescription(nDatatype) & ": File Not Found!"
 			End If
 		End If
 	Next	'nFile
 
 	Call TABClose(sTabBoundary)
 
-	Call DEBUGPrint("Data Loading Done: " & FormatNumber$(Timer() - nTime) & " seconds")
+	Print Time(24) & " Data Loading finished after " & FormatNumber$(Timer() - nTime) & " seconds"
 	Call RBNNotificationShow(PRGIGetApplicationName(), "Data Loading has finished after " & FormatNumber$(Timer() - nTime) & " seconds", Notify_Info, 10000)
 
 	Exit Sub

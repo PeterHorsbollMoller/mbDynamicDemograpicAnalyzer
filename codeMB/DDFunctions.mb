@@ -346,10 +346,14 @@ OnError GoTo ErrorOccured
 
 DDFGetDataTypes = 0
 
+	If Not FILEFileExists(sMainFolder) Then
+		Call DEBUGPrint("The main folder doesn't exist: '" & sMainFolder & "'")
+		Exit Function
+	End If
 	nNumFolders = FILEFindFoldersInFolder(sMainFolder, "*")
 	If nNumFolders = 0 Then
 		Call DEBUGPrint("Please select a folder with at least one sub folder!: " & sMainFolder)
-		Exit Sub
+		Exit Function
 	End If
 	ReDim arrSubFolders(0)
 	For nFolder = 1 To nNumFolders
@@ -543,10 +547,14 @@ OnError GoTo ErrorOccured
 DDFGetBoundaryTypes = 0
 
 	sPath = DDFGetDataTypeFolderPath(sMainFolder, TRUE, DD_DATATYPE_BOUNDARIES, DD_BOUNDARY_UNDEFINED)
+	If Not FILEFileExists(sPath) Then
+		Call DEBUGPrint("The folder for boundaries doesn't exist: '" & sPath & "'")
+		Exit Function
+	End If
 	nNumFolders = FILEFindFoldersInFolder(sPath, "*")
 	If nNumFolders = 0 Then
 		Call DEBUGPrint("Please select a folder with at least one sub folder!: " & sPath)
-		Exit Sub
+		Exit Function
 	End If
 	ReDim arrSubFolders(0)
 	For nFolder = 1 To nNumFolders
@@ -894,3 +902,52 @@ ErrorOccured:
 	Call ERRShow()
 
 End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Function DDFGetPreferenceDistanceUnit() As String		'Returns "km", "mi", "m" or similar
+
+OnError GoTo ErrorOccured
+
+DDFGetPreferenceDistanceUnit = "km"
+
+	Do Case GetPreference(PREFERENCE_SYSTEM, PREF_SYSTEM_DISTANCEUNITS)
+		Case 0 'Miles
+			DDFGetPreferenceDistanceUnit	= "mi"		'~1609.34 meters
+		Case 1 'Kilometers
+			DDFGetPreferenceDistanceUnit	= "km"		'=1000 meters
+		Case 2 'Inches
+			DDFGetPreferenceDistanceUnit	= "in"		'~0.025 meters
+		Case 3 'Feet
+			DDFGetPreferenceDistanceUnit	= "ft"		'~0.3 meters
+		Case 4 'Yards
+			DDFGetPreferenceDistanceUnit	= "yd"		'~0.91 meters
+		Case 5 'Millimeters
+			DDFGetPreferenceDistanceUnit	= "mm"		'=0.001 meters
+		Case 6 'Centimeters
+			DDFGetPreferenceDistanceUnit	= "cm"		'=0.01 meters
+		Case 7 'Meters
+			DDFGetPreferenceDistanceUnit	= "m"		'=1 meters
+		Case 8 'US Survey Feet
+			DDFGetPreferenceDistanceUnit	= "survey ft"	'~0.3 meters
+		Case 9 'Nautical Miles
+			DDFGetPreferenceDistanceUnit	= "nmi"		'~1852 meters
+		Case 30 'Links
+			DDFGetPreferenceDistanceUnit	= "li"		'~0.2 meters
+		Case 31 'Chains
+			DDFGetPreferenceDistanceUnit	= "ch"		'~20.12 meters
+		Case 32 'Rods
+			DDFGetPreferenceDistanceUnit	= "rd"		'~5.03 meters
+	End Case
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDFGetPreferenceDistanceUnit")
+	Call ERRShow()
+
+End Function
+
