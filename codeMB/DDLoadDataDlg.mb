@@ -13,6 +13,7 @@ Include "Menu.def"
 Include "Library\Defaults.def"
 
 '-------------------------------------
+Include "Library\ARRAYLib.def"
 Include "Library\DEBUGLib.def"
 Include "Library\ERRORLib.def"
 Include "Library\FILELib.def"
@@ -32,16 +33,20 @@ Declare Sub DDLDHandler_LoadDataTypes
 Declare Sub DDLDHandler_LoadBoundaryTypes
 Declare Sub DDLDHandler_BoundaryTypeClicked
 
-Define	CTRL_TXT_MAIN_FOLDER		100
-Define	CTRL_CMD_SELECT_MAIN_FOLDER	110
-Define	CTRL_LST_DATATYPES			300
-Define	CTRL_CHK_DATATYPES_ALL		310
-Define	CTRL_LST_BOUNDARYTYPES		400
-Define	CTRL_CHK_LOAD_BOUNDARY		500
-Define	CTRL_LBL_LOAD_BOUNDARY_FORCED	510
-Define	CTRL_CHK_LOAD_ORIG2DEST		600
+Define	CTRL_TXT_MAIN_FOLDER			100
+Define	CTRL_CMD_SELECT_MAIN_FOLDER		110
+Define	CTRL_LST_DATATYPES				300
+Define	CTRL_CHK_DATATYPES_ALL			310
+Define	CTRL_LST_BOUNDARYTYPES			400
+Define	CTRL_CHK_LOAD_BOUNDARY			500
+Define	CTRL_LBL_LOAD_BOUNDARY_FORCED		510
+Define	CTRL_CHK_LOAD_ORIG2DEST			600
+Define	CTRL_LBL_ORIG2DEST_NOT_FOUND		610
+Define	CTRL_LBL_ORIG2DEST_NOT_SUPPORTED	620
+Define	CTRL_CHK_PREP_SEASONALITY		700
+Define	CTRL_LBL_SEASONALITY_NOT_FOUND	710
 
-Dim	mbLoadBoundaries, mbLoadOrig2Dest As Logical,
+Dim	mbLoadBoundaries, mbLoadOrig2Dest, mbPrepareSeasonality As Logical,
 	marrDatatypesToLoad(), marrDatatypesDlg(), marrBoundaryTypesDlg() As Integer,
 	marrDatatypeDescriptionsDlg(), marrBoundaryDescriptionsDlg() As String,
 	mnBoundaryType As Integer
@@ -113,6 +118,24 @@ DDLoadDataDlg = FALSE
 			Position 5,130
 			Title "Load 'Origin to Destination' files"
 			Value mbLoadOrig2Dest
+		Control StaticText		ID CTRL_LBL_ORIG2DEST_NOT_FOUND
+			Position 15,140
+			Title "'Origin to Destination' files not found for this boundary type"
+			Hide
+		Control StaticText		ID CTRL_LBL_ORIG2DEST_NOT_SUPPORTED
+			Position 15,140
+			Title "'Origin to Destination' files not supported for this boundary type"
+			Hide
+
+
+		Control CheckBox		ID CTRL_CHK_PREP_SEASONALITY
+			Position 5,155
+			Title "Prepare 'Seasonality' for Time Series"
+			Value mbPrepareSeasonality
+		Control StaticText		ID CTRL_LBL_SEASONALITY_NOT_FOUND
+			Position 15,165
+			Title "'Seasonality' files not found for this boundary type"
+			Hide
 
 		Control OKButton
 			Calling DDLDHandler_OKClicked
@@ -187,6 +210,9 @@ OnError GoTo ErrorOccured
 	Call DEBUGPrint("Load Boundary File: " & mbLoadBoundaries)
 	mbLoadOrig2Dest	= ReadControlValue(CTRL_CHK_LOAD_ORIG2DEST)
 	Call DEBUGPrint("Load Orig2Dest File: " & mbLoadOrig2Dest)
+
+	mbPrepareSeasonality	= ReadControlValue(CTRL_CHK_PREP_SEASONALITY)
+	Call DEBUGPrint("Prepare Seasonality File: " & mbPrepareSeasonality)
 
 	nCount = 0
 	Redim marrDatatypesToLoad(nCount)
@@ -309,6 +335,30 @@ OnError GoTo ErrorOccured
 		Alter Control CTRL_LBL_LOAD_BOUNDARY_FORCED	Hide
 	End If
 
+	Alter Control CTRL_CHK_LOAD_ORIG2DEST Enable
+	Alter Control CTRL_LBL_ORIG2DEST_NOT_SUPPORTED Hide
+	Alter Control CTRL_LBL_ORIG2DEST_NOT_FOUND Hide
+	If Not DDFBoundarySupportsOrig2Dest(nBoundary) Then
+		Alter Control CTRL_CHK_LOAD_ORIG2DEST Disable
+		Alter Control CTRL_CHK_LOAD_ORIG2DEST Value FALSE
+		Alter Control CTRL_LBL_ORIG2DEST_NOT_SUPPORTED Show
+	Else
+		If DDFGetOrigin2DestFileName(sPath, TRUE, DD_DAYPART_UNDEFINED, nBoundary, "TXT") = "" Then
+			Alter Control CTRL_CHK_LOAD_ORIG2DEST Disable
+			Alter Control CTRL_CHK_LOAD_ORIG2DEST Value FALSE
+			Alter Control CTRL_LBL_ORIG2DEST_NOT_FOUND Show
+		End If
+	End If
+
+	Alter Control CTRL_CHK_PREP_SEASONALITY Enable
+	Alter Control CTRL_LBL_SEASONALITY_NOT_FOUND Hide
+	sFile = DDFGetBoundaryFileName(sPath, TRUE, DD_DATATYPE_SEASONALITY, DD_DAYPART_UNDEFINED, nBoundary, "TXT")
+	If sFile = "" Then
+		Alter Control CTRL_CHK_PREP_SEASONALITY Disable
+		Alter Control CTRL_CHK_PREP_SEASONALITY Value FALSE
+		Alter Control CTRL_LBL_SEASONALITY_NOT_FOUND SHOW
+	End If
+
 	Exit Sub
 '-------------------------
 ErrorOccured:
@@ -379,7 +429,8 @@ OnError GoTo ErrorOccured
 
 	Redim marrBoundaryTypesDlg(0)
 	Redim marrBoundaryDescriptionsDlg(0)
-	If DDFGetBoundaryTypes(sPath, marrBoundaryTypesDlg(), marrBoundaryDescriptionsDlg()) > 0 Then
+'	If DDFGetBoundaryTypes(sPath, marrBoundaryTypesDlg(), marrBoundaryDescriptionsDlg()) > 0 Then
+	If DDFGetBaseBoundaryTypesByFile(sPath, "TXT", marrBoundaryTypesDlg(), marrBoundaryDescriptionsDlg()) > 0 Then
 		Alter Control CTRL_LST_BOUNDARYTYPES	Title From Variable marrBoundaryDescriptionsDlg
 	Else
 		Alter Control CTRL_LST_BOUNDARYTYPES	Title From Variable marrBoundaryDescriptionsDlg
@@ -491,6 +542,26 @@ OnError GoTo ErrorOccured
 '-------------------------
 ErrorOccured:
 	Call ERRCreate(Err(), Error$(), "DDLDGetBoundaryType")
+	Call ERRShow()
+
+End Function
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
+Function DDLDPrepareSeasonality() As Logical
+
+OnError GoTo ErrorOccured
+
+	DDLDPrepareSeasonality = mbPrepareSeasonality
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDLDPrepareSeasonality")
 	Call ERRShow()
 
 End Function

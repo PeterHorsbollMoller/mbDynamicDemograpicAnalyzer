@@ -36,6 +36,30 @@
 '					- When renaming the tool now checks if the specified project already exists and warns the user
 '						- Existing project will be closed and overwritten
 '						- Table open under the same name will be closed
+'31/08/2022 08.59.39	v1.6.9
+'					- Fixed an error where numeric AREA_IDs where mistreating in the query
+'06/09/2022 14.22.54	v1.7.0
+'					- Fixed issue where the tool crashed when no datatype was selected
+'					- Fixed an issue with preselecting the current data type in the COnfig dialog
+'14/12/2022 09.12.51	v1.8.0
+'					- Support for loading Uber H3 Hex Level 11 boundary files
+'					- Improved column type detection when loading data files
+'					- Support for  handling some boundaries that don't support Orig2Dest
+'					- Data Loading now looks for Boundary Files, not just the folder (support for Hex 11 in same folder as Hex 9)
+'					- Data Loading now support preparing Seasonality for Time Series - transposing the data
+'26/01/2023 14.48.45	v1.8.1
+'					- Validating Config dialog
+'					- Fixing finding files
+'28/02/2023 09.25.24	v1.8.2
+'					- Lists in dialogs with base boundary types now only list boundary types with existing files (txt or tab)
+'					- DataLoad: Fixed potential issue with seasonality having empty columns (converting Char to Float)
+'					- DataLoad: Added checks for support for and existense of 'origing to destinaltion' files
+'					- DataLoad: Added checks for existense of 'seasonality' files
+'					- DDFGetOrigin2DestFileName no longer takes a datatype parameters
+'					- Fixed issue where these function didn't return a file name when multiple files where found: DDFGetBoundaryFileName & DDFGetOrigin2DestFileName
+'27/04/2023 13.40.32	v.1.8.5
+'					- Newest Libray Modules
+'					- Release Build
 '*******************************************************************************
 
 '-------------------------------------
@@ -51,8 +75,8 @@ Include "Library\RibbonElements.def"
 
 Define xProgram 		"Dynamic Demograpic Analyzer"
 Define xProgramMenu		"DynamicDemograpicAnalyzer"
-Define xVersion 		"1.6.8"
-Define xYear			"2022"
+Define xVersion 		"1.8.5"
+Define xYear			"2023"
 Define xAddToMenuBar	FALSE
 
 Define FILE_INI		GetFolderPath$(FOLDER_MI_PREFERENCE) & "DynamicDemograpicAnalyzer.ini"
@@ -903,7 +927,7 @@ Function MENUCreateToQueryTables(	  ByVal oFromPolygon As Object		'Polygon of th
 							) As Integer						'Number of Rows Selected, 0 if none were found
 
 Dim	nNumRows As Integer,
-	sCmd, sUnit As String,
+	sCmd, sUnit, sProcess As String,
 	nTime, nTime1 As Integer,
 	fRoundTo As Float
 
@@ -917,7 +941,7 @@ MENUCreateToQueryTables = 0
 	If ColumnInfo(sTabOrigin2Dest, sColOD_AreaIDStart, COL_INFO_TYPE) = COL_TYPE_CHAR Then
 		sCmd = sCmd & " Where " & sColOD_AreaIDStart & " = " & Chr$(34) & sAreaID & Chr$(34)
 	Else
-		sCmd = sCmd & " Where " & sColOD_AreaIDStart & " = Val(" & sAreaID & ")"
+		sCmd = sCmd & " Where " & sColOD_AreaIDStart & " = " & sAreaID
 	End If
 
 	If sOriginAreaType <> "" Then
@@ -929,7 +953,8 @@ MENUCreateToQueryTables = 0
 
 	nTime	= Timer()
 	nTime1	= Timer()
-	Call DEBUGPrint("Query 1: " & sCmd)
+	sProcess	= "Query 1: " & sCmd
+	Call DEBUGPrint(sProcess)
 	Run Command sCmd
 	nNumRows	= TableInfo("_temp", TAB_INFO_NROWS)
 	Call DEBUGPrint("Done 1: " & FormatNumber$(Timer() - nTime1) & " seconds: " & FormatNumber$(nNumRows))
@@ -947,7 +972,8 @@ MENUCreateToQueryTables = 0
 			& " Into " & sQueryNameArea & " NoSelect Hide"
 
 	nTime1	= Timer()
-	Call DEBUGPrint("Query 2: " & sCmd)
+	sProcess	= "Query 2: " & sCmd
+	Call DEBUGPrint(sProcess)
 	Run Command sCmd
 	nNumRows	= TableInfo(sQueryNameArea, TAB_INFO_NROWS)
 	Call DEBUGPrint("Done 2: " & FormatNumber$(Timer() - nTime1) & " seconds: " & FormatNumber$(nNumRows))
@@ -957,6 +983,7 @@ MENUCreateToQueryTables = 0
 		Exit Function
 	End If
 
+	sProcess	= "DDFSaveAsTemp: " & sQueryNameArea
 	Call DDFSaveAsTemp(sQueryNameArea, TRUE, TRUE, TRUE, TRUE)
 	Call TABClose("_temp")
 
@@ -978,7 +1005,8 @@ MENUCreateToQueryTables = 0
 		End Case
 
 		nTime1	= Timer()
-		Call DEBUGPrint("Query 3: Creating Lines: " & FormatNumber$(CentroidX(oFromPolygon)) & " | " & FormatNumber$(CentroidX(oFromPolygon)))
+		sProcess	= "Query 3: Creating Lines: " & FormatNumber$(CentroidX(oFromPolygon)) & " | " & FormatNumber$(CentroidX(oFromPolygon))
+		Call DEBUGPrint(sProcess)
 		Select q.*
 				, Round(ObjectLen(ConnectObjects(Centroid(oFromPolygon), Centroid(q.OBJ), TRUE), sUnit), fRoundTo) "Distance_" & PathToTableName$(sUnit)
 				, ConnectObjects(Centroid(oFromPolygon), Centroid(q.OBJ), TRUE) Object
@@ -987,6 +1015,7 @@ MENUCreateToQueryTables = 0
 		Call DEBUGPrint("Done 3: " & FormatNumber$(Timer() - nTime1) & " seconds: " & FormatNumber$(TableInfo(sQueryNameLine, TAB_INFO_NROWS)))
 	End If
 
+	sProcess	= "DDFSaveAsTemp: " & sQueryNameLine
 	Call DDFSaveAsTemp(sQueryNameLine, TRUE, TRUE, TRUE, TRUE)
 
 	Call DEBUGPrint("MENUCreateToQueryTables, Total: " & FormatNumber$(Timer() - nTime) & " seconds")
@@ -996,7 +1025,7 @@ MENUCreateToQueryTables = 0
 	Exit Function
 '-------------------------
 ErrorOccured:
-	Call ERRCreate(Err(), Error$(), "MENUCreateToQueryTables")
+	Call ERRCreate(Err(), Error$(), "MENUCreateToQueryTables: " & sProcess)
 	Call ERRShow()
 
 End Function

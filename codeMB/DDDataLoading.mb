@@ -18,6 +18,7 @@ Include "Library\DEBUGLib.def"
 Include "Library\ERRORLib.def"
 Include "Library\ProgramInfo.def"
 Include "Library\RIBBONLib.def"
+Include "Library\STRINGLib.def"
 Include "Library\TABLELib.def"
 Include "Library\Types\T_LAYER_SETTINGS.def"
 Include "Library\Types\T_LABEL_SETTINGS.def"
@@ -34,8 +35,11 @@ Include "DDDataLoading.def"
 '**********************************************************************************************''
 Sub DDDataLoading
 
-Dim	sTempFolder, sPath, sFile, sFileNoExt, sTable, sTabBoundary As String,
-	nTime, nFile, nDaypart, nDatatype, nBoundaryType, nCharsSaved As Integer
+Dim	sTempFolder, sPath, sFile, sFileNoExt, sTable, sTabBoundary, sColName, sCmd As String,
+	nTime, nFile, nDaypart, nDatatype, nBoundaryType, nCharsSaved, nPostfix As Integer,
+	arrColnames(12), arrColNamePostfix(5) As String,
+	nYear, nMonth As Integer,
+	aCol1, aCol2, aCol3, aCol4, aCol5 As Alias
 
 OnError GoTo ErrorOccured
 
@@ -43,7 +47,7 @@ OnError GoTo ErrorOccured
 		If Ask("Close all tables to continue?", "Abort", "Close All") Then
 			Exit Sub
 		End If
-		Close All Interactive
+		Run Command "Close All Interactive"
 		If NumTables() > 0 Then
 			Exit Sub
 		End If
@@ -70,7 +74,7 @@ OnError GoTo ErrorOccured
 
 	'**B O U N D A R I E S
 	Print "-------------------------------------------"
-	Print Time(24) & " Process 1 of 3: Boundary File"
+	Print Time(24) & " Process 1 of 4: Boundary File"
 	If DDLDLoadBoundaryFiles() Then
 '		Call DEBUGPrint("-------------------------------------------")
 		'**"\boundaries\<boundary type>\"
@@ -92,7 +96,7 @@ OnError GoTo ErrorOccured
 			Type OGR
 			Table sTable
 			Driver "CSV"
-			Openoptions "AUTODETECT_TYPE=YES;KEEP_GEOM_COLUMNS=NO;GEOM_POSSIBLE_NAMES=geometry"
+			Openoptions "AUTODETECT_TYPE=YES;AUTODETECT_SIZE_LIMIT=0;AUTODETECT_WIDTH=YES;HEADERS=YES;KEEP_GEOM_COLUMNS=NO;GEOM_POSSIBLE_NAMES=geometry"
 			Cache On
 			Charset "WindowsLatin1"
 			Regionstyle Pen(1, 2, RED) Brush(1,BLACK,BLACK)
@@ -113,7 +117,7 @@ OnError GoTo ErrorOccured
 '		Call DEBUGPrint("   Data loaded! '" & sTable & "' holds " & FormatNumber$(TableInfo(sTable, TAB_INFO_NROWS)) & " records.")
 		Close Table sTable
 	Else
-		Print Time(24) & " Not configured to run"
+		Print Time(24) & "   Not configured to run"
 	End If
 
 '	Call DEBUGPrint("-------------------------------------------")
@@ -131,7 +135,7 @@ OnError GoTo ErrorOccured
 
 	'**O R I G I N    T O    D E S T I N A T I O N S
 	Print "-------------------------------------------"
-	Print Time(24) & " Process 2 of 3: Origin To Destination Files"
+	Print Time(24) & " Process 2 of 4: Origin To Destination Files"
 	If DDLDLoadOrig2DestFiles() Then
 '		Call DEBUGPrint("-------------------------------------------")
 		sPath		= DDFGetDataTypeFolderPath(DDCGetDDMainDataFolder(), TRUE, DD_DATATYPE_ORIG_2_DESTINATION, nBoundaryType)
@@ -149,13 +153,15 @@ OnError GoTo ErrorOccured
 					Type OGR
 					Table sTable
 					Driver "CSV"
-					Openoptions "AUTODETECT_TYPE=YES"
+					Openoptions "AUTODETECT_TYPE=YES;AUTODETECT_SIZE_LIMIT=0;AUTODETECT_WIDTH=YES;HEADERS=YES"
 					Cache On
 					Charset "WindowsLatin1"
 					Into sTempFolder & "_temp.tab"
 
 				If nDaypart = 1 Then
 					Print Time(24) & "   Opening TXT file..."
+				Else
+					Print Time(24) & "   Processing details only shown for first file..."
 				End If
 				Open Table sTempFolder & "_temp.tab"
 				If nDaypart = 1 Then
@@ -196,14 +202,14 @@ OnError GoTo ErrorOccured
 			End If
 		Next
 	Else
-		Print Time(24) & " Not configured to run"
+		Print Time(24) & "   Not configured to run"
 	End If
 
 	'**D A T A    F I L E S
 	Print "-------------------------------------------"
-	Print Time(24) & " Process 3 of 3: Data Files"
+	Print Time(24) & " Process 3 of 4: Data Files"
 	If DDLDGetNumberOfDataFiles() = 0 Then
-		Print Time(24) & " Not configured to run"
+		Print Time(24) & "   Not configured to run"
 	End If
 
 	For nFile = 1 To DDLDGetNumberOfDataFiles()
@@ -227,13 +233,15 @@ OnError GoTo ErrorOccured
 						Type OGR
 						Table sTable
 						Driver "CSV"
-						Openoptions "AUTODETECT_TYPE=YES"
+						Openoptions "AUTODETECT_TYPE=YES;AUTODETECT_SIZE_LIMIT=0;AUTODETECT_WIDTH=YES;HEADERS=YES"
 						Cache On
 						Charset "WindowsLatin1"
 						Into sTempFolder & "_temp.tab"
 
 					If nDaypart = 1 Then
 						Print Time(24) & "   Opening TXT file..."
+					Else
+						Print Time(24) & "   Processing details only shown for first file"
 					End If
 					Open Table sTempFolder & "_temp.tab"
 					If nDaypart = 1 Then
@@ -287,7 +295,7 @@ OnError GoTo ErrorOccured
 					Type OGR
 					Table sTable
 					Driver "CSV"
-					Openoptions "AUTODETECT_TYPE=YES"
+					Openoptions "AUTODETECT_TYPE=YES;AUTODETECT_SIZE_LIMIT=0;AUTODETECT_WIDTH=YES;HEADERS=YES"
 					Cache On
 					Charset "WindowsLatin1"
 					Into sTempFolder & "_temp.tab"
@@ -320,6 +328,113 @@ OnError GoTo ErrorOccured
 			End If
 		End If
 	Next	'nFile
+
+	'**P R E P A R E   S E A S O N A L I T Y   F O R   T I M E   S E R I E S
+	Print "-------------------------------------------"
+	Print Time(24) & " Process 4 of 4: Preparing Seasonality"
+	If DDLDPrepareSeasonality() Then
+'		sPath	= DDFGetDataTypeFolderPath(DDCGetDDMainDataFolder(), TRUE, DD_DATATYPE_SEASONALITY, nBoundaryType)
+'		sFile 	= DDFGetBoundaryFileName(DDCGetDDMainDataFolder(), TRUE, DD_DATATYPE_SEASONALITY, DD_DAYPART_UNDEFINED, nBoundaryType, "TXT")
+'		Print Time(24) & ": Preparing " & DDFGetDataTypeDescription(DD_DATATYPE_SEASONALITY) & " for use in Time Series TXT: " & sFile
+		sFile 	= DDFGetBoundaryFileName(DDCGetDDMainDataFolder(), TRUE, DD_DATATYPE_SEASONALITY, DD_DAYPART_UNDEFINED, nBoundaryType, "TAB")
+		Print Time(24) & ": Preparing " & DDFGetDataTypeDescription(DD_DATATYPE_SEASONALITY) & " for use in Time Series, TAB: " & sFile
+'		Call DEBUGPrint("-------------------------------------------")
+		If sFile <> "" Then
+			Open Table sFile
+
+			sTable	= PathToTableName$(sFile)
+			sPath	= PathToDirectory$(sFile)
+			sFile	= PathToFileName$(sFile)
+			sFile	= Left$(sFile, Len(sFile) - 4)
+
+			Fetch First From sTable
+			aCol1	= sTable & ".obs_end_date"
+			nYear	= Year(aCol1)
+
+			arrColnames(1)		= "JAN"
+			arrColnames(2)		= "FEB"
+			arrColnames(3)		= "MAR"
+			arrColnames(4)		= "APR"
+			arrColnames(5)		= "MAY"
+			arrColnames(6)		= "JUN"
+			arrColnames(7)		= "JUL"
+			arrColnames(8)		= "AUG"
+			arrColnames(9)		= "SEP"
+			arrColnames(10)	= "OCT"
+			arrColnames(11)	= "NOV"
+			arrColnames(12)	= "DEC"
+
+			arrColNamePostfix(1)	= "DT"
+			arrColNamePostfix(2)	= "AT"
+			arrColNamePostfix(3)	= "PT"
+			arrColNamePostfix(4)	= "RANKM"
+			arrColNamePostfix(5)	= "S"
+
+
+			For nMonth = 1 To Ubound(arrColnames)
+'				Print Time(24) & "   " & arrColnames(nMonth) & "..."
+				For nPostfix = 1 To Ubound(arrColNamePostfix)
+					sColName	= arrColnames(nMonth) & "_" & arrColNamePostfix(nPostfix)
+					If ColumnInfo(sTable, sColName, COL_INFO_TYPE) = COL_TYPE_CHAR Then
+						sCmd = IIf(sCmd = "", sColName & " Float", sCmd & ", " & sColName & " Float")
+					End If
+				Next
+			Next
+
+			If Not sCmd = "" Then
+				sCmd	= "Alter Table " & sTable & " ( Modify " & sCmd & ")"
+				Call DEBUGPrint(sCmd)
+				Run Command sCmd
+			End If
+
+			sFile = STRINGReplace(sFile, DDFGetDataTypeDescription(DD_DATATYPE_SEASONALITY), DDFGetDataTypeDescription(DD_DATATYPE_SEASONALITY) & "_TimeSeries")
+			sFile = PathToDirectory$(TableInfo(sTable, TAB_INFO_TABFILE)) & sFile & ".TAB"
+			Print Time(24) & ": Saving Result into : " & sFile
+			Create Table __SEASONALITY_TIME_SERIES
+					( dest_area_id Integer, dest_area_type Char(3)
+					, obs_start_date Char(10), obs_end_date Char(10)
+					, PERIOD Date
+					, arrColNamePostfix(1) Float, arrColNamePostfix(2) Float, arrColNamePostfix(3) Float, arrColNamePostfix(4) Float, arrColNamePostfix(5) Float )
+					File sFile
+					TYPE NATIVEX Charset "WindowsLatin1"
+
+			Create Map
+				For __SEASONALITY_TIME_SERIES
+				CoordSys Table sTable
+
+			Set Table __SEASONALITY_TIME_SERIES FastEdit On
+
+			For nMonth = 1 To Ubound(arrColnames)
+				Print Time(24) & "   " & arrColnames(nMonth) & "..."
+				aCol1	= sTable & "." & arrColnames(nMonth) & "_" & arrColNamePostfix(1)
+				aCol2	= sTable & "." & arrColnames(nMonth) & "_" & arrColNamePostfix(2)
+				aCol3	= sTable & "." & arrColnames(nMonth) & "_" & arrColNamePostfix(3)
+				aCol4	= sTable & "." & arrColnames(nMonth) & "_" & arrColNamePostfix(4)
+				aCol5	= sTable & "." & arrColnames(nMonth) & "_" & arrColNamePostfix(5)
+
+				Insert Into __SEASONALITY_TIME_SERIES
+					(dest_area_id, dest_area_type, obs_start_date, obs_end_date
+					, PERIOD
+					, DT, AT, PT, RANKM, S
+					, OBJ
+					)
+				Select
+					dest_area_id, dest_area_type, obs_start_date, obs_end_date
+					, Val(nYear & Format$(nMonth, "00") & "01")
+					, aCol1, aCol2, aCol3, aCol4, aCol5
+					, OBJ
+					From sTable
+			Next
+
+			Commit Table __SEASONALITY_TIME_SERIES
+			Close Table __SEASONALITY_TIME_SERIES
+			Close Table sTable
+		Else
+			Print Time(24) & " " & DDFGetDataTypeDescription(DD_DATATYPE_SEASONALITY) & ": File Not Found. Try loading the data files!"
+		End If
+	Else
+		Print Time(24) & "   Not configured to run"
+	End If
 
 	Call TABClose(sTabBoundary)
 
@@ -359,7 +474,7 @@ DDDataMinimizeCharColumns = 0
 				Into __MAX NoSelect Hide
 
 			Fetch First From __MAX
-			nWidthMax = __MAX.MAX_WIDTH
+			nWidthMax = Maximum(__MAX.MAX_WIDTH, 1)	'Make sure they are larger than 0 characters wide
 			Close Table __MAX
 
 			nWidth = ColumnInfo(sTab, sCol, COL_INFO_WIDTH)

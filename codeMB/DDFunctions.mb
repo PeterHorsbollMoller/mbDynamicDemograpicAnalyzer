@@ -42,7 +42,7 @@ OnError GoTo ErrorOccured
 DDFGetBoundaryFileName = ""
 
 	sPath 		= FILEAddBackSlash(DDFGetDataTypeFolderPath(sMainFolder, bPivoted, nDataType, nBoundaryType))
-	sBoundaryType	= DDFGetBoundaryShortName(nBoundaryType)
+	sBoundaryType	= DDFGetBoundaryShortName(nBoundaryType, nDatatype)
 
 	If DDFIsDataTypeSplitByDaypart(nDataType) Then
 		sDayPart		= DDFGetDaypartShortName(nDaypart)
@@ -66,6 +66,8 @@ DDFGetBoundaryFileName = ""
 			sMask	= "*" & sBoundaryType & "_profession*" & sDayPart & "." & sFileType
 		Case DD_DATATYPE_CONSUMER_STYLES
 			sMask	= "*" & sBoundaryType & "_consumer_styles*" & sDayPart & "." & sFileType
+		Case DD_DATATYPE_SEASONALITY
+			sMask	= "*" & sBoundaryType & "_seasonality*" & sDayPart & "." & sFileType
 
 		Case DD_DATATYPE_ORIG_2_DESTINATION
 			sMask	= "*" & sBoundaryType & "_origin_destination*" & sDayPart & "." & sFileType
@@ -82,12 +84,14 @@ DDFGetBoundaryFileName = ""
 			Exit Function
 		Case 1
 			sFile = FILEGetFindFilesFileName(1)
+			DDFGetBoundaryFileName = sFile
 		Case Else
 			sFile = FILEGetFindFilesFileName(1)
+			DDFGetBoundaryFileName = sFile
+			Call DEBUGPrint("DDFGetBoundaryFileName: Multiple files found matching this mask '" & sMask & "'. Using the first! File found: " & sFile)
 			Call RBNNotificationShow("Dynamic Demographic Analyzer", "Multiple files found matching this mask '" & sMask & "'. Using the first!", Notify_Warning, 10000)
 	End Case
 
-	DDFGetBoundaryFileName = sFile
 	Exit Function
 '-------------------------
 ErrorOccured:
@@ -126,21 +130,28 @@ End Function
 '**********************************************************************************************''
 Function DDFGetOrigin2DestFileName(  ByVal sMainFolder As String
 							, ByVal bPivoted As Logical
-							, ByVal nDatatype As Integer
 							, ByVal nDaypart As Integer
 							, ByVal nBoundaryType As Integer
 							, ByVal sFileType As String		'"TAB", "TXT"
 							) As String
 
 Dim	sPath, sMask, sFile, sBoundaryType, sDayPart As String,
-	nNumFiles As Integer
+	nNumFiles, nDatatype As Integer
 
 OnError GoTo ErrorOccured
 
 DDFGetOrigin2DestFileName = ""
 
+	nDatatype	= DD_DATATYPE_ORIG_2_DESTINATION
+
+	If Not DDFBoundarySupportsOrig2Dest(nBoundaryType) Then
+		Call RBNNotificationShow("Dynamic Demographic Analyzer", "Boundary Type '" & DDFGetBoundaryDescription(nBoundaryType) & "' doesn't support Origin To Destination analysis", Notify_Warning, 10000)
+		Call DEBUGPrint("DDFGetOrigin2DestFileName: Boundary Type '" & DDFGetBoundaryDescription(nBoundaryType) & "' doesn't support Origin To Destination analysis")
+		Exit Function
+	End If
+
 	sPath		= FILEAddBackSlash(DDFGetDataTypeFolderPath(sMainFolder, bPivoted, nDataType, sBoundaryType))
-	sBoundaryType	= DDFGetBoundaryShortName(nBoundaryType)
+	sBoundaryType	= DDFGetBoundaryShortName(nBoundaryType, nDatatype)
 
 	If DDFIsDataTypeSplitByDaypart(nDataType) Then
 		sDayPart		= DDFGetDaypartShortName(nDaypart)
@@ -150,6 +161,7 @@ DDFGetOrigin2DestFileName = ""
 	End If
 
 	sMask	= "*" & sBoundaryType & "_origin_destination*" & sDayPart & "." & sFileType
+'	sMask	= "*" & sBoundaryType & "*" & sDayPart & "*." & sFileType
 
 '	Call DEBUGPrint("DDFGetOrigin2DestFileName: " & sMask)
 	nNumFiles = FILEFindFilesInFolder(sPath, sMask)
@@ -160,14 +172,15 @@ DDFGetOrigin2DestFileName = ""
 			Exit Function
 		Case 1
 			sFile = FILEGetFindFilesFileName(1)
+			DDFGetOrigin2DestFileName = sFile
 '			Call DEBUGPrint("DDFGetOrigin2DestFileName: File found: " & sFile)
 		Case Else
 			sFile = FILEGetFindFilesFileName(1)
-'			Call DEBUGPrint("DDFGetOrigin2DestFileName: Multiple files found matching this mask '" & sMask & "'. Using the first! File found: " & sFile)
+			DDFGetOrigin2DestFileName = sFile
+			Call DEBUGPrint("DDFGetOrigin2DestFileName: Multiple files found matching this mask '" & sMask & "'. Using the first! File found: " & sFile)
 			Call RBNNotificationShow("Dynamic Demographic Analyzer", "Multiple files found matching this mask '" & sMask & "'. Using the first!", Notify_Warning, 10000)
 	End Case
 
-	DDFGetOrigin2DestFileName = sFile
 	Exit Function
 '-------------------------
 ErrorOccured:
@@ -278,6 +291,8 @@ OnError GoTo ErrorOccured
 			DDFGetDataTypeDescription = "Profession"
 		Case DD_DATATYPE_CONSUMER_STYLES
 			DDFGetDataTypeDescription = "Consumer Styles"
+		Case DD_DATATYPE_SEASONALITY
+			DDFGetDataTypeDescription = "Seasonality"
 
 		Case DD_DATATYPE_ORIG_2_DESTINATION
 			DDFGetDataTypeDescription = "Origin to Destination"
@@ -313,6 +328,8 @@ OnError GoTo ErrorOccured
 			DDFGetDataTypeShortName = "Prof"
 		Case DD_DATATYPE_CONSUMER_STYLES
 			DDFGetDataTypeShortName = "ConsStyle"
+		Case DD_DATATYPE_SEASONALITY
+			DDFGetDataTypeShortName = "Seasonality"
 
 		Case DD_DATATYPE_ORIG_2_DESTINATION
 			DDFGetDataTypeShortName = "Orig2Dest"
@@ -408,6 +425,8 @@ OnError GoTo ErrorOccured
 			DDFGetDataTypeFolderName = "profession"
 		Case DD_DATATYPE_CONSUMER_STYLES
 			DDFGetDataTypeFolderName = "consumer_styles"
+		Case DD_DATATYPE_SEASONALITY
+			DDFGetDataTypeFolderName = "seasonality"
 
 		Case DD_DATATYPE_ORIG_2_DESTINATION
 			DDFGetDataTypeFolderName = "origin_destination"
@@ -451,7 +470,7 @@ OnError GoTo ErrorOccured
 	End If
 
 	sFolder = FILEAddBackSlash(FILEAddBackSlash(sMainFolder) & sFolder)
-'	Call DEBUGPrint("DDFGetDataTypeFolderPath: " & DDFGetBoundaryShortName(nBoundaryType) & "-" & DDFGetDataTypeShortName(nDatatype) & ": " & sFolder)
+'	Call DEBUGPrint("DDFGetDataTypeFolderPath: " & DDFGetBoundaryShortName(nBoundaryType, nDatatype) & "-" & DDFGetDataTypeShortName(nDatatype) & ": " & sFolder)
 	DDFGetDataTypeFolderPath = sFolder
 
 	Exit Function
@@ -478,7 +497,9 @@ DDFGetBoundaryDescription = ""
 		Case DD_BOUNDARY_UNDEFINED
 			DDFGetBoundaryDescription = "Not specified"
 		Case DD_BOUNDARY_HEX_H3_L9
-			DDFGetBoundaryDescription = "Uber H3 Hexagon Level 9 (HEX)"
+			DDFGetBoundaryDescription = "Uber H3 Hexagon Level 9 (HEX 09)"
+		Case DD_BOUNDARY_HEX_H3_L11
+			DDFGetBoundaryDescription = "Uber H3 Hexagon Level 11 (HEX 11)"
 		Case DD_BOUNDARY_SA1
 			DDFGetBoundaryDescription = "Statistical Areas 1 (SA1)"
 		Case DD_BOUNDARY_OA
@@ -502,7 +523,9 @@ End Function
 'Return value:
 '
 '**********************************************************************************************''
-Function DDFGetBoundaryShortName(ByVal nBoundaryType As Integer) As String
+Function DDFGetBoundaryShortName(	  ByVal nBoundaryType As Integer
+							, ByVal nDatatype As Integer
+							) As String
 
 DDFGetBoundaryShortName = ""
 
@@ -510,7 +533,19 @@ DDFGetBoundaryShortName = ""
 		Case DD_BOUNDARY_UNDEFINED
 			DDFGetBoundaryShortName = ""
 		Case DD_BOUNDARY_HEX_H3_L9
-			DDFGetBoundaryShortName = "hex"
+			Do Case nDatatype
+				Case DD_DATATYPE_BOUNDARIES
+					DDFGetBoundaryShortName = "hex_09"
+				Case Else
+					DDFGetBoundaryShortName = "hex"
+			End Case
+		Case DD_BOUNDARY_HEX_H3_L11
+			Do Case nDatatype
+				Case DD_DATATYPE_BOUNDARIES
+					DDFGetBoundaryShortName = "hex_11"
+				Case Else
+					DDFGetBoundaryShortName = "h11"
+			End Case
 		Case DD_BOUNDARY_SA1
 			DDFGetBoundaryShortName = "sa1"
 		Case DD_BOUNDARY_OA
@@ -523,6 +558,40 @@ DDFGetBoundaryShortName = ""
 '-------------------------
 ErrorOccured:
 	Call ERRCreate(Err(), Error$(), "DDFGetBoundaryShortName")
+	Call ERRShow()
+
+End Function
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
+Function DDFBoundarySupportsOrig2Dest(ByVal nBoundaryType As Integer) As Logical
+
+DDFBoundarySupportsOrig2Dest = ""
+
+	Do Case nBoundaryType
+		Case DD_BOUNDARY_UNDEFINED
+			DDFBoundarySupportsOrig2Dest = FALSE
+		Case DD_BOUNDARY_HEX_H3_L9
+			DDFBoundarySupportsOrig2Dest = TRUE
+		Case DD_BOUNDARY_HEX_H3_L11
+			DDFBoundarySupportsOrig2Dest = FALSE
+		Case DD_BOUNDARY_SA1
+			DDFBoundarySupportsOrig2Dest = TRUE
+		Case DD_BOUNDARY_OA
+			DDFBoundarySupportsOrig2Dest = TRUE
+		Case DD_BOUNDARY_ERG
+			DDFBoundarySupportsOrig2Dest = TRUE
+	End Case
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDFBoundarySupportsOrig2Dest")
 	Call ERRShow()
 
 End Function
@@ -596,6 +665,72 @@ End Function
 'Return value:
 '
 '**********************************************************************************************''
+Function DDFGetBaseBoundaryTypesByFile(	  ByVal sMainFolder As String
+								, ByVal sFileType As String
+								, arrBoundaryTypes() As Integer
+								, arrBoundaryDescriptions() As String
+								) As Integer
+
+Dim	nBoundary, nFolder, nNumFolders As Integer,
+	sPath, arrSubFolders() As String
+
+OnError GoTo ErrorOccured
+
+DDFGetBaseBoundaryTypesByFile = 0
+
+	sPath = DDFGetDataTypeFolderPath(sMainFolder, TRUE, DD_DATATYPE_BOUNDARIES, DD_BOUNDARY_UNDEFINED)
+	If Not FILEFileExists(sPath) Then
+		Call DEBUGPrint("The folder for boundaries doesn't exist: '" & sPath & "'")
+		Exit Function
+	End If
+	nNumFolders = FILEFindFoldersInFolder(sPath, "*")
+	If nNumFolders = 0 Then
+		Call DEBUGPrint("Please select a folder with at least one sub folder!: " & sPath)
+		Exit Function
+	End If
+	ReDim arrSubFolders(0)
+	For nFolder = 1 To nNumFolders
+'		Call DEBUGPrint(nFolder & ". folder: " & FILEGetFindFoldersFolderName(nFolder))
+		Call ARRAYAddValueString(arrSubFolders, FILEGetFindFoldersFolderName(nFolder))
+	Next
+
+'	Call DEBUGPrint("Folders: " & Chr$(10) & ARRAYToSeparatedTextString(arrSubFolders(), Chr$(10)))
+
+	ReDim arrBoundaryDescriptions(0)
+	ReDim arrBoundaryTypes(0)
+
+	For nBoundary = 1 To DD_NUM_BOUNDARY_TYPES
+'		Call DEBUGPrint("Looking for: " & DDFGetBoundaryFolderName(nBoundary))
+		For nFolder = 1 To Ubound(arrSubFolders)
+			If InStr(1, arrSubFolders(nFolder), DDFGetBoundaryFolderName(nBoundary)) Then
+'				Call DEBUGPrint("   Found: " & DDFGetBoundaryFolderName(nBoundary))
+
+				If Not DDFGetBaseBoundaryFileName(sMainFolder, nBoundary, sFileType) = "" Then
+					Call ARRAYAddValueString(arrBoundaryDescriptions(), DDFGetBoundaryDescription(nBoundary))
+					Call ARRAYAddValueInteger(arrBoundaryTypes(), nBoundary)
+					Exit For
+				End If
+			End If
+		Next
+	Next
+
+	DDFGetBaseBoundaryTypesByFile = Ubound(arrBoundaryTypes)
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "DDFGetBaseBoundaryTypesByFile")
+	Call ERRShow()
+
+End Function
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
 Function DDFGetBoundaryTypesAll(	  arrBoundaryDescriptions() As String
 							) As Integer
 
@@ -637,6 +772,8 @@ DDFGetBoundaryFolderName = ""
 	Do Case nBoundaryType
 		Case DD_BOUNDARY_HEX_H3_L9
 			DDFGetBoundaryFolderName = "hex"
+		Case DD_BOUNDARY_HEX_H3_L11
+			DDFGetBoundaryFolderName = "hex"
 		Case DD_BOUNDARY_SA1
 			DDFGetBoundaryFolderName = "sa1"
 		Case DD_BOUNDARY_OA
@@ -673,6 +810,8 @@ OnError GoTo ErrorOccured
 			DDFIsDataTypeSplitByDaypart = FALSE	'Checked
 		Case DD_DATATYPE_CONSUMER_STYLES
 			DDFIsDataTypeSplitByDaypart = FALSE	'Checked
+		Case DD_DATATYPE_SEASONALITY
+			DDFIsDataTypeSplitByDaypart = FALSE
 
 		Case DD_DATATYPE_ORIG_2_DESTINATION
 			DDFIsDataTypeSplitByDaypart = TRUE		'Checked
@@ -707,6 +846,8 @@ OnError GoTo ErrorOccured
 			DDFIsDataTypePivoted = TRUE	'Checked
 		Case DD_DATATYPE_CONSUMER_STYLES
 			DDFIsDataTypePivoted = TRUE	'Checked
+		Case DD_DATATYPE_SEASONALITY
+			DDFIsDataTypePivoted = TRUE
 
 		Case DD_DATATYPE_ORIG_2_DESTINATION
 			DDFIsDataTypePivoted = TRUE	'Checked

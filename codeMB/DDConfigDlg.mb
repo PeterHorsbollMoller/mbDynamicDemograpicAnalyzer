@@ -311,16 +311,22 @@ OnError GoTo ErrorOccured
 	If sPath = "" Then
 		Note "Please specify a dynamic demographic main data folder!"
 		Alter Control CTRL_TXT_MAIN_FOLDER Active
+		Dialog Preserve
+		Exit Sub
 	End If
 	sPath = FILEGetAbsolutePath(ApplicationDirectory$(), sPath)
 	If Not FileExists(sPath) Then
 		Note "Please specify an existing folder as the dynamic demographic data folder!"
 		Alter Control CTRL_TXT_MAIN_FOLDER Active
+		Dialog Preserve
+		Exit Sub
 	End If
 	Call DDCSetDDMainDataFolder(sPath)
 
 	nItemBoundary	= ReadControlValue(CTRL_LST_BOUNDARYTYPES)
 	If nItemBoundary = 0 Then
+		Note "Please select a boundary type from the list!"
+		Dialog Preserve
 		Exit Sub
 	End If
 	nBoundary		= marrBoundaryTypes(nItemBoundary)
@@ -329,11 +335,24 @@ OnError GoTo ErrorOccured
 
 	nDaypart		= ReadControlValue(CTRL_LST_DAYPART)
 	Call DEBUGPrint("You selected daypart " & nDaypart & " - " & DDFGetDaypartDescription(nDaypart))
+	If nDaypart = 0 Then
+		Note "Please select a day part from the list!"
+		Dialog Preserve
+		Exit Sub
+	End If
 	Call DDCSetDayPart(nDaypart)
 
 	If ReadControlValue(CTRL_CHK_DATATYPES_USE) Then
 		nItemDatatype	= ReadControlValue(CTRL_LST_DATATYPES)
+		Call DEBUGPrint("Datatype Item:" & nItemDatatype)
+		If nItemDatatype = 0 Then
+			Note "Please select a datatype from the list!"
+			Dialog Preserve
+			Exit Sub
+		End If
+
 		nDatatype		= marrDatatypes(nItemDatatype)
+		Call DEBUGPrint("Datatype:" & nDatatype)
 		Call DEBUGPrint("You selected datatype " & nDatatype & " referring to " & DDFGetDataTypeFolderPath(sPath, TRUE, nDatatype, DDCGetBoundaryType()))
 		Call DDCSetDataType(nDatatype)
 	Else
@@ -344,7 +363,7 @@ OnError GoTo ErrorOccured
 	Call DDCSetBoundaryFile(DDFGetBoundaryFileName(sPath, TRUE, nDatatype, nDaypart, nBoundary, "TAB"))
 	Call DEBUGPrint("Boundary File: " & DDCGetBoundaryFile())
 
-	Call DDCSetOrigin2DestFile(DDFGetOrigin2DestFileName(sPath, TRUE, DD_DATATYPE_ORIG_2_DESTINATION, nDaypart, nBoundary, "TAB"))
+	Call DDCSetOrigin2DestFile(DDFGetOrigin2DestFileName(sPath, TRUE, nDaypart, nBoundary, "TAB"))
 	Call DEBUGPrint("Orig2Destination File: " & DDCGetOrigin2DestFile())
 
 	If DDCGetOrigin2DestFile() = "" Or DDCGetBoundaryFile() = "" Then
@@ -355,11 +374,13 @@ OnError GoTo ErrorOccured
 	Call DDCSetSplitByWorkerHome(ReadControlValue(CTRL_CHK_SPLIT_WORK_HOME))
 
 	'**Read Layer Settings
+	Call DEBUGPrint("Read Layer Settings...")
 	If Ubound(arrOpenLayersIndex) > 0 Then
 		nMID	= FrontWindow()
 		For nLayer = 1 To Ubound(marrOpenLayerNames)
+			Call DEBUGPrint("Layer " & nLayer & "...")
 			If marrLayerUpdate(nLayer) Then
-'				Call DEBUGPrint("Refresh Layer '" & marrOpenLayerNames(nLayer) & "' using Layer ID '" & marrOpenLayerIDs(nLayer) & "'")
+				Call DEBUGPrint("Refresh Layer '" & marrOpenLayerNames(nLayer) & "' using Layer ID '" & marrOpenLayerIDs(nLayer) & "'")
 				Call tlsGetInfo(nMID, marrOpenLayerIDs(nLayer), marrLayerSettings(arrOpenLayersIndex(nLayer)))
 				Call tlbsGetInfo(nMID, marrOpenLayerIDs(nLayer), marrLabelSettings(arrOpenLayersIndex(nLayer)))
 			End If
@@ -394,7 +415,7 @@ OnError GoTo ErrorOccured
 	If DDFGetDataTypes(sPath, marrDatatypes, marrDataTypeDescriptions) > 0 Then
 		Alter Control CTRL_LST_DATATYPES	Title From Variable marrDataTypeDescriptions
 
-		If Not ReadControlValue(CTRL_CHK_DATATYPES_USE) Then
+		If ReadControlValue(CTRL_CHK_DATATYPES_USE) Then
 			nDataTypeItem = ARRAYFindValueInteger(marrDatatypes, DDCGetDataType())
 			If nDataTypeItem > 0 Then
 				Alter Control CTRL_LST_DATATYPES	Value nDataTypeItem
@@ -438,7 +459,8 @@ OnError GoTo ErrorOccured
 
 	Redim marrBoundaryTypes(0)
 	Redim marrBoundaryDescriptions(0)
-	If DDFGetBoundaryTypes(sPath, marrBoundaryTypes(), marrBoundaryDescriptions()) > 0 Then
+'	If DDFGetBoundaryTypes(sPath, marrBoundaryTypes(), marrBoundaryDescriptions()) > 0 Then
+	If DDFGetBaseBoundaryTypesByFile(sPath, "TAB", marrBoundaryTypes(), marrBoundaryDescriptions()) > 0 Then
 		Alter Control CTRL_LST_BOUNDARYTYPES	Title From Variable marrBoundaryDescriptions
 		nItemBoundary	= ARRAYFindValueInteger(marrBoundaryTypes(), nBoundaryType)
 		If nItemBoundary > 0 Then
@@ -610,13 +632,13 @@ OnError GoTo ErrorOccured
 	sPath		= ReadControlValue(CTRL_TXT_MAIN_FOLDER)
 	sPath		= FILEGetAbsolutePath(ApplicationDirectory$(), sPath)
 
-'	Call DEBUGPrint("---------------------------------------")
+	Call DEBUGPrint("---------------------------------------")
 	sFile	= DDFGetBoundaryFileName(sPath, TRUE, nDatatype, nDaypart, nBoundary, "TAB")
-'	Call DEBUGPrint("Boundary File: " & sFile)
+	Call DEBUGPrint("Boundary File: " & sFile)
 	Alter Control CTRL_TXT_BOUNDARY	Value FILEGetRelativePath(sPath, sFile)
 
-	sFile	= DDFGetOrigin2DestFileName(sPath, TRUE, DD_DATATYPE_ORIG_2_DESTINATION, nDaypart, nBoundary, "TAB")
-'	Call DEBUGPrint("Orig2Dest File: " & sFile)
+	sFile	= DDFGetOrigin2DestFileName(sPath, TRUE, nDaypart, nBoundary, "TAB")
+	Call DEBUGPrint("Orig2Dest File: " & sFile)
 	Alter Control CTRL_TXT_ORIG_2_DEST	Value FILEGetRelativePath(sPath, sFile)
 
 	Exit Sub

@@ -8,3 +8,4 @@ Declare Function DDLDGetNumberOfDataFiles() As Integer
 Declare Function DDLDGetDataType(ByVal nFile As Integer) As Integer
 
 Declare Function DDLDGetBoundaryType() As Integer
+Declare Function DDLDPrepareSeasonality() As Logical
