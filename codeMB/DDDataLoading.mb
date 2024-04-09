@@ -177,6 +177,10 @@ OnError GoTo ErrorOccured
 '				Call DEBUGPrint("   Data loaded! '" & sTable & "' holds " & FormatNumber$(TableInfo(_tempNative, TAB_INFO_NROWS)) & " records.")
 
 				If nDaypart = 1 Then
+					Print Time(24) & "   Indexing DEST_AREA_ID column..."
+				End If
+				Create Index On _tempNative (DEST_AREA_ID)
+				If nDaypart = 1 Then
 					Print Time(24) & "   Joining with Boundaries..."
 				End If
 				Select d.*
@@ -257,6 +261,10 @@ OnError GoTo ErrorOccured
 '					Call DEBUGPrint("   Data loaded! '" & sTable & "' holds " & FormatNumber$(TableInfo(_tempNative, TAB_INFO_NROWS)) & " records.")
 
 					If nDaypart = 1 Then
+						Print Time(24) & "   Indexing DEST_AREA_ID column..."
+					End If
+					Create Index On _tempNative (DEST_AREA_ID)
+					If nDaypart = 1 Then
 						Print Time(24) & "   Joining with Boundaries..."
 					End If
 					Select d.*
@@ -310,6 +318,8 @@ OnError GoTo ErrorOccured
 				nCharsSaved = DDDataMinimizeCharColumns("_tempNative")
 '				Call DEBUGPrint("   Data loaded! '" & sTable & "' holds " & FormatNumber$(TableInfo(_tempNative, TAB_INFO_NROWS)) & " records.")
 
+				Print Time(24) & "   Indexing DEST_AREA_ID column..."
+				Create Index On _tempNative (DEST_AREA_ID)
 				Print Time(24) & "   Joining with Boundaries..."
 				Select d.*
 					From sTabBoundary As "b", _tempNative As "d"

@@ -60,6 +60,14 @@
 '27/04/2023 13.40.32	v.1.8.5
 '					- Newest Libray Modules
 '					- Release Build
+'03/05/2023 11.17.40	v.1.8.6
+'					- Added Index on data files during data load
+'16/05/2023 13.40.18	v1.9.0
+'					- Tab for DD Analyzer
+'22/05/2023 14:00:37	v.1.9.1
+'					- Fixing issue with Origins to Destinations - was doing Destinations to Origins
+'03-01-2024 07:05:24	v1.9.2
+'					- Added Occupation as a DataType as it replaces Profession in AUS from v2023-12
 '*******************************************************************************
 
 '-------------------------------------
@@ -75,8 +83,8 @@ Include "Library\RibbonElements.def"
 
 Define xProgram 		"Dynamic Demograpic Analyzer"
 Define xProgramMenu		"DynamicDemograpicAnalyzer"
-Define xVersion 		"1.8.5"
-Define xYear			"2023"
+Define xVersion 		"1.9.2"
+Define xYear			"2024"
 Define xAddToMenuBar	FALSE
 
 Define FILE_INI		GetFolderPath$(FOLDER_MI_PREFERENCE) & "DynamicDemograpicAnalyzer.ini"
@@ -198,7 +206,7 @@ Dim	msTabBoundary, msTabOrigin2Dest, marrQueryNames(), marrQueryTypes() As Strin
 '**********************************************************************************************''
 Sub Main
 
-Dim	sTabName, sGroupName, sFile As String,
+Dim	sTabName, sGroupName, sCaption, sFile As String,
 	nCtrlIdx As Integer
 
 OnError GoTo ErrorOccured
@@ -219,58 +227,153 @@ OnError GoTo ErrorOccured
 	' C O N T R O L S   A D D E D   T O   M A P   T A B
 	'****************************************************************************************
 	'**Map Tab, Selection Group
-	sTabName		= TAB_MAP
-	sGroupName	= TAB_GROUP_MAP_SELECTION
-
-	nCtrlIdx = RBNGroupAddControl("cmdDDAnalyzerD2OTool", "Destination to Origins", "", ControlType_ToolButton, sTabName, sGroupName)
-	If nCtrlIdx > 0 Then
-		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Click and create a Destination to Origins Analysis.", "Setup the analysis using the COnfiguration dialog to use this tool.")
-		Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_LARGE, "", ApplicationDirectory$() & "Dest2Origin_64.png")
-		Call RBNControlSetDrawModeIdx(nCtrlIdx, DM_CUSTOM_POINT)
-		Call RBNControlSetMICursorIdx(nCtrlIdx, MI_CURSOR_LRG_CROSSHAIR, "")
-		Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUDestination2OriginsTool")
-	End If
-	nCtrlIdx = RBNGroupAddControl("cmdDDAnalyzerD2OSel", "Destinations to Origins", "", ControlType_Button, sTabName, sGroupName)
-	If nCtrlIdx > 0 Then
-		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Create a Destinations to Origins Analysis using the selection.", "Please select the destination areas for the analysis from the base boundary table!")
-		Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_LARGE, "", ApplicationDirectory$() & "Dest2OriginSel_64.png")
-		Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUDestination2OriginsFromSel")
+	sTabName	= "tabDDAnalyzer"
+	sCaption	= "Dynamic Demographic"
+	nCtrlIdx	= RBNAddTab(sTabName, sCaption, "")
+	If nCtrlIdx = 0 then
+		Note "Error: Tab '" & sCaption & "' wasn't added"
+		Exit Sub
 	End If
 
-	nCtrlIdx = RBNGroupAddControl("cmdDDAnalyzerO2DTool", "Origin to Destinations", "", ControlType_ToolButton, sTabName, sGroupName)
-	If nCtrlIdx > 0 Then
-		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Click and create a Origin to Destinations Analysis.", "Setup the analysis using the COnfiguration dialog to use this tool.")
-		Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_LARGE, "", ApplicationDirectory$() & "Origin2Dest_64.png")
-		Call RBNControlSetDrawModeIdx(nCtrlIdx, DM_CUSTOM_POINT)
-		Call RBNControlSetMICursorIdx(nCtrlIdx, MI_CURSOR_LRG_CROSSHAIR, "")
-		Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUOrigin2DestinationsTool")
-	End If
-	nCtrlIdx = RBNGroupAddControl("cmdDDAnalyzerO2DSel", "Origins to Destinations", "", ControlType_Button, sTabName, sGroupName)
-	If nCtrlIdx > 0 Then
-		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Create a Origins to Destinations Analysis using the selection.", "Please select the origin areas for the analysis from the base boundary table!")
-		Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_LARGE, "", ApplicationDirectory$() & "Origin2DestSel_64.png")
-		Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUOrigin2DestinationsFromSel")
+	'*** T A B   G R O U P   F O R   F I L E S
+	sGroupName	= "grpDDAnalyzerFiles"
+	sCaption		= "Files"
+	nCtrlIdx		= RBNTabAddGroup(sGroupName, sCaption, sTabName)
+	If nCtrlIdx = 0 then
+		Note "Error: Group '" & sCaption & "' wasn't added"
+	Else
+		nCtrlIdx = RBNGroupAddControl("cmdSaveAs", "Save Result as", "", ControlType_Button, sTabName, sGroupName)
+		If nCtrlIdx > 0 Then
+			Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Save a Origin to Destination Analysis into tables.", "Create an analysis to use this function")
+			Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_LARGE, "", ApplicationDirectory$() & "DDSaveAs.png")
+			Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUSaveAs")
+		End If
+
+		nCtrlIdx = RBNGroupAddControl("cmdConfiguration", "Configuration...", "", ControlType_Button, sTabName, sGroupName)
+		If nCtrlIdx > 0 Then
+			Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Open configuration dialog for Dynamic Demographic Analyzer", "")
+			Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_SMALL, MI_IMG_TLS_CTLGBROWSEROPTS_16, MI_IMG_TLS_CTLGBROWSEROPTS_32)
+			Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUConfiguration")
+		End If
+		nCtrlIdx = RBNGroupAddControl("cmdDataLoading", "Data Loading...", "", ControlType_Button, sTabName, sGroupName)
+		If nCtrlIdx > 0 Then
+			Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Convert Dynamic Demographic Text file into Extended Tab Files.", "")
+			Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_SMALL, MI_IMG_MAP_OPENTABLE_16, MI_IMG_MAP_OPENTABLE_32)
+			Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "DDDataLoading")
+		End If
 	End If
 
-	nCtrlIdx = RBNGroupAddControl("cmdSaveAs", "Save Result as", "", ControlType_Button, sTabName, sGroupName)
-	If nCtrlIdx > 0 Then
-		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Save a Origin to Destination Analysis into tables.", "Create an analysis to use this function")
-		Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_LARGE, "", ApplicationDirectory$() & "DDSaveAs.png")
-		Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUSaveAs")
+	'*** T A B   G R O U P   F O R   S I N G L E   I N P U T S
+	sGroupName	= "grpDDAnalyzerTools"
+	sCaption		= "Tools"
+	nCtrlIdx		= RBNTabAddGroup(sGroupName, sCaption, sTabName)
+	If nCtrlIdx = 0 then
+		Note "Error: Group '" & sCaption & "' wasn't added"
+	Else
+		nCtrlIdx = RBNGroupAddControl("cmdDDAnalyzerSelector", "Select", "", ControlType_ToolButton, sTabName, sGroupName)
+		If nCtrlIdx > 0 Then
+			Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Select one or more map records", "")
+			Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_LARGE, MI_IMG_MAP_SELECT_16, MI_IMG_MAP_SELECT_32)
+'			Call RBNControlSetDrawModeIdx(nCtrlIdx, DM_CUSTOM_POINT)
+'			Call RBNControlSetMICursorIdx(nCtrlIdx, MI_CURSOR_LRG_CROSSHAIR, "")
+			Call RBNControlSetCmdIDIdx(nCtrlIdx, M_QUERY_SELECT)
+		End If
+		nCtrlIdx = RBNGroupAddControl("cmdDDAnalyzerZoomIn", "Zoom In", "", ControlType_ToolButton, sTabName, sGroupName)
+		If nCtrlIdx > 0 Then
+			Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Zoom in on a map at cursor location", "")
+			Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_LARGE, MI_IMG_MAP_ZOOMIN_16, MI_IMG_MAP_ZOOMIN_32)
+'			Call RBNControlSetDrawModeIdx(nCtrlIdx, DM_CUSTOM_POINT)
+'			Call RBNControlSetMICursorIdx(nCtrlIdx, MI_CURSOR_LRG_CROSSHAIR, "")
+			Call RBNControlSetCmdIDIdx(nCtrlIdx, M_TOOLS_EXPAND)
+		End If
+		nCtrlIdx = RBNGroupAddControl("cmdDDAnalyzerZoomOut", "Zoom Out", "", ControlType_ToolButton, sTabName, sGroupName)
+		If nCtrlIdx > 0 Then
+			Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Zoom out on a map at cursor location", "")
+			Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_LARGE, MI_IMG_MAP_ZOOMOUT_16, MI_IMG_MAP_ZOOMOUT_32)
+'			Call RBNControlSetDrawModeIdx(nCtrlIdx, DM_CUSTOM_POINT)
+'			Call RBNControlSetMICursorIdx(nCtrlIdx, MI_CURSOR_LRG_CROSSHAIR, "")
+			Call RBNControlSetCmdIDIdx(nCtrlIdx, M_TOOLS_SHRINK)
+		End If
+		nCtrlIdx = RBNGroupAddControl("cmdDDAnalyzerPan", "Pan", "", ControlType_ToolButton, sTabName, sGroupName)
+		If nCtrlIdx > 0 Then
+			Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Recenter a map by grabbing and moving in a direction", "")
+			Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_LARGE, MI_IMG_MAP_PAN_16, MI_IMG_MAP_PAN_32)
+'			Call RBNControlSetDrawModeIdx(nCtrlIdx, DM_CUSTOM_POINT)
+'			Call RBNControlSetMICursorIdx(nCtrlIdx, MI_CURSOR_LRG_CROSSHAIR, "")
+			Call RBNControlSetCmdIDIdx(nCtrlIdx, M_TOOLS_RECENTER)
+		End If
+		nCtrlIdx = RBNGroupAddControl("cmdDDAnalyzerInfo", "Info", "", ControlType_ToolButton, sTabName, sGroupName)
+		If nCtrlIdx > 0 Then
+			Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Display tabular information about map objects", "")
+			Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_LARGE, MI_IMG_MAP_INFOTOOL_16, MI_IMG_MAP_INFOTOOL_32)
+'			Call RBNControlSetDrawModeIdx(nCtrlIdx, DM_CUSTOM_POINT)
+'			Call RBNControlSetMICursorIdx(nCtrlIdx, MI_CURSOR_LRG_CROSSHAIR, "")
+			Call RBNControlSetCmdIDIdx(nCtrlIdx, M_TOOLS_PNT_QUERY)
+		End If
 	End If
 
+	'*** T A B   G R O U P   F O R   S I N G L E   I N P U T S
+	sGroupName	= "grpDDAnalyzerSingle"
+	sCaption		= "Single"
+	nCtrlIdx		= RBNTabAddGroup(sGroupName, sCaption, sTabName)
+	If nCtrlIdx = 0 then
+		Note "Error: Group '" & sCaption & "' wasn't added"
+	Else
+'		nCtrlIdx = RBNGroupAddControl("cmdDDAnalyzerD2OTool", "Destination to Origins", "", ControlType_ToolButton, sTabName, sGroupName)
+		nCtrlIdx = RBNGroupAddControl("cmdDDAnalyzerD2OTool", "Show me Origins", "", ControlType_ToolButton, sTabName, sGroupName)
+		If nCtrlIdx > 0 Then
+			Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Click and create a Destination to Origins Analysis.", "Setup the analysis using the COnfiguration dialog to use this tool.")
+			Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_LARGE, "", ApplicationDirectory$() & "Dest2Origin_64.png")
+			Call RBNControlSetDrawModeIdx(nCtrlIdx, DM_CUSTOM_POINT)
+			Call RBNControlSetMICursorIdx(nCtrlIdx, MI_CURSOR_LRG_CROSSHAIR, "")
+			Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUDestination2OriginsTool")
+		End If
+'		nCtrlIdx = RBNGroupAddControl("cmdDDAnalyzerO2DTool", "Origin to Destinations", "", ControlType_ToolButton, sTabName, sGroupName)
+		nCtrlIdx = RBNGroupAddControl("cmdDDAnalyzerO2DTool", "Show me Destinations", "", ControlType_ToolButton, sTabName, sGroupName)
+		If nCtrlIdx > 0 Then
+			Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Click and create a Origin to Destinations Analysis.", "Setup the analysis using the COnfiguration dialog to use this tool.")
+			Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_LARGE, "", ApplicationDirectory$() & "Origin2Dest_64.png")
+			Call RBNControlSetDrawModeIdx(nCtrlIdx, DM_CUSTOM_POINT)
+			Call RBNControlSetMICursorIdx(nCtrlIdx, MI_CURSOR_LRG_CROSSHAIR, "")
+			Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUOrigin2DestinationsTool")
+		End If
+	End If
+
+	'*** T A B   G R O U P   F O R   M U L T I P L E   I N P U T S
+	sGroupName	= "grpDDAnalyzerMultiple"
+	sCaption		= "Mutiple"
+	nCtrlIdx		= RBNTabAddGroup(sGroupName, sCaption, sTabName)
+	If nCtrlIdx = 0 then
+		Note "Error: Group '" & sCaption & "' wasn't added"
+	Else
+'		nCtrlIdx = RBNGroupAddControl("cmdDDAnalyzerD2OSel", "Destinations to Origins", "", ControlType_Button, sTabName, sGroupName)
+		nCtrlIdx = RBNGroupAddControl("cmdDDAnalyzerD2OSel", "Show me Origins", "", ControlType_Button, sTabName, sGroupName)
+		If nCtrlIdx > 0 Then
+			Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Create a Destinations to Origins Analysis using the selection.", "Please select the destination areas for the analysis from the base boundary table!")
+			Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_LARGE, "", ApplicationDirectory$() & "Dest2OriginSel_64.png")
+			Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUDestination2OriginsFromSel")
+		End If
+
+'		nCtrlIdx = RBNGroupAddControl("cmdDDAnalyzerO2DSel", "Origins to Destinations", "", ControlType_Button, sTabName, sGroupName)
+		nCtrlIdx = RBNGroupAddControl("cmdDDAnalyzerO2DSel", "Show me Destinations", "", ControlType_Button, sTabName, sGroupName)
+		If nCtrlIdx > 0 Then
+			Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Create a Origins to Destinations Analysis using the selection.", "Please select the origin areas for the analysis from the base boundary table!")
+			Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_LARGE, "", ApplicationDirectory$() & "Origin2DestSel_64.png")
+			Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUOrigin2DestinationsFromSel")
+		End If
+	End If
 
 	'****************************************************************************************
 	' C O N T R O L S   A D D E D   T O   A P P L I C A T I O N   C O N T E X T   M E N U
 	'****************************************************************************************
 	'**Application Context Menu
-	nCtrlIdx	= RBNToolContextMenuAddMenuItem("cmdConfiguration", "Configuration...", "")
+	nCtrlIdx	= RBNToolContextMenuAddMenuItem("cmdConfigurationCntx", "Configuration...", "")
 	If nCtrlIdx > 0 Then
 		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Open configuration dialog for Dynamic Demographic Analyzer", "")
 		Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_SMALL, MI_IMG_TLS_CTLGBROWSEROPTS_16, MI_IMG_TLS_CTLGBROWSEROPTS_32)
 		Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUConfiguration")
 	End If
-	nCtrlIdx	= RBNToolContextMenuAddMenuItem("cmdDataLoading", "Data Loading...", "")
+	nCtrlIdx	= RBNToolContextMenuAddMenuItem("cmdDataLoadingCntx", "Data Loading...", "")
 	If nCtrlIdx > 0 Then
 		Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), "Convert Dynamic Demographic Text file into Extended Tab Files.", "")
 		Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_SMALL, MI_IMG_MAP_OPENTABLE_16, MI_IMG_MAP_OPENTABLE_32)
@@ -1122,7 +1225,7 @@ MENUCreateToQueryTablesFromTab = 0
 	If sQueryNameLine <> "" Then
 		nTime1	= Timer()
 		Call DEBUGPrint("Query 4: Creating Lines")
-		Select q.*, ConnectObjects(Centroid(oFromPolygon), Centroid(q.OBJ), TRUE) Object
+		Select q.COL1, q.COL2, q.Num_Destinations, ConnectObjects(Centroid(oFromPolygon), Centroid(q.OBJ), TRUE) Object
 			From sQueryNameArea As "q"
 			Into sQueryNameLine NoSelect Hide
 		Call DEBUGPrint("Done 4: " & FormatNumber$(Timer() - nTime1) & " seconds: " & FormatNumber$(TableInfo(sQueryNameLine, TAB_INFO_NROWS)))
@@ -1753,6 +1856,9 @@ OnError GoTo ErrorOccured
 	Call DDFCloseTempDDTables()
 
 	sQueryName		= sFrom & "_DD"
+'	sODAreaIDCol			= IIf(sFrom="Orig", "Dest_Area_ID", "Origin_Area_ID")
+'	sODAreaIDStartCol		= IIf(sFrom="Orig", "Origin_Area_ID", "Dest_Area_ID")
+
 	sBoundaryAreaIDCol	= IIf(COLExists(msTabBoundary, "Area_ID")=TRUE, "Area_ID", "Dest_Area_ID")
 	sAreaID			= MENUCreateFromQueryTableFromTab(sSelectionTable, msTabBoundary, sBoundaryAreaIDCol, sQueryName)
 	If sAreaID = "" Then
@@ -1903,9 +2009,12 @@ OnError GoTo ErrorOccured
 	sSelectionTable	= SelectionInfo(SEL_INFO_SELNAME)
 
 	Call DDFCloseTempDDTables()
+'	sODAreaIDCol			= IIf(sFrom="Orig", "Dest_Area_ID", "Origin_Area_ID")
+'	sODAreaIDStartCol		= IIf(sFrom="Orig", "Origin_Area_ID", "Dest_Area_ID")
 
 	sQueryName		= sFrom & "_DD"
-	sBoundaryAreaIDCol	= IIf(COLExists(msTabBoundary, "Area_ID")=TRUE, "Area_ID", "Dest_Area_ID")
+	sBoundaryAreaIDCol	= IIf(COLExists(msTabBoundary, "Area_ID")=TRUE, "Area_ID", "Origin_Area_ID")
+'	sBoundaryAreaIDCol	= IIf(COLExists(msTabBoundary, "Area_ID")=TRUE, "Area_ID", "Dest_Area_ID")
 	sAreaID			= MENUCreateFromQueryTableFromTab(sSelectionTable, msTabBoundary, sBoundaryAreaIDCol, sQueryName)
 	If sAreaID = "" Then
 		Call TABClose(sSelectionTable)
@@ -1930,7 +2039,8 @@ OnError GoTo ErrorOccured
 
 			nCounts(i)	= MENUCreateToQueryTablesFromTab( sSelectionTable, oFrom, sAreaID, sOriginAreaType
 								, msTabBoundary, sBoundaryAreaIDCol
-								, msTabOrigin2Dest, "Origin_Area_ID", "Dest_Area_ID", sOriginAreaTypeCol	'"Origin_Area_Type"
+								, msTabOrigin2Dest, "Dest_Area_ID", "Origin_Area_ID", sOriginAreaTypeCol	'"Origin_Area_Type"
+'								, msTabOrigin2Dest, "Origin_Area_ID", "Dest_Area_ID", sOriginAreaTypeCol	'"Origin_Area_Type"
 								, sQueryName, sFrom & "_2_" & sQueryName)
 			Call DebugPrint(FormatNumber$(nCounts(i)) & " " & sTo & "(s) found for '" & sOriginAreaType & "'.")
 
@@ -1958,7 +2068,8 @@ OnError GoTo ErrorOccured
 
 		nCounts(1)	= MENUCreateToQueryTablesFromTab( sSelectionTable, oFrom, sAreaID, ""
 							, msTabBoundary, sBoundaryAreaIDCol
-							, msTabOrigin2Dest, "Origin_Area_ID", "Dest_Area_ID", ""
+							, msTabOrigin2Dest, "Dest_Area_ID", "Origin_Area_ID", ""
+'							, msTabOrigin2Dest, "Origin_Area_ID", "Dest_Area_ID", ""
 							, sQueryName, sFrom & "_2_" & sQueryName)
 		Call DebugPrint(FormatNumber$(nCounts(1)) & " " & sTo & "(s) found.")
 

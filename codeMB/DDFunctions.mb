@@ -64,6 +64,8 @@ DDFGetBoundaryFileName = ""
 			sMask	= "*" & sBoundaryType & "_hh_income*" & sDayPart & "." & sFileType
 		Case DD_DATATYPE_PROFESSION
 			sMask	= "*" & sBoundaryType & "_profession*" & sDayPart & "." & sFileType
+		Case DD_DATATYPE_OCCUPATION
+			sMask	= "*" & sBoundaryType & "_occupation*" & sDayPart & "." & sFileType
 		Case DD_DATATYPE_CONSUMER_STYLES
 			sMask	= "*" & sBoundaryType & "_consumer_styles*" & sDayPart & "." & sFileType
 		Case DD_DATATYPE_SEASONALITY
@@ -289,6 +291,8 @@ OnError GoTo ErrorOccured
 			DDFGetDataTypeDescription = "Household Income"
 		Case DD_DATATYPE_PROFESSION
 			DDFGetDataTypeDescription = "Profession"
+		Case DD_DATATYPE_OCCUPATION
+			DDFGetDataTypeDescription = "Occupation"
 		Case DD_DATATYPE_CONSUMER_STYLES
 			DDFGetDataTypeDescription = "Consumer Styles"
 		Case DD_DATATYPE_SEASONALITY
@@ -326,6 +330,8 @@ OnError GoTo ErrorOccured
 			DDFGetDataTypeShortName = "HHIncome"
 		Case DD_DATATYPE_PROFESSION
 			DDFGetDataTypeShortName = "Prof"
+		Case DD_DATATYPE_OCCUPATION
+			DDFGetDataTypeShortName = "Occupation"
 		Case DD_DATATYPE_CONSUMER_STYLES
 			DDFGetDataTypeShortName = "ConsStyle"
 		Case DD_DATATYPE_SEASONALITY
@@ -423,6 +429,8 @@ OnError GoTo ErrorOccured
 			DDFGetDataTypeFolderName = "household_income"
 		Case DD_DATATYPE_PROFESSION
 			DDFGetDataTypeFolderName = "profession"
+		Case DD_DATATYPE_OCCUPATION
+			DDFGetDataTypeFolderName = "occupation"
 		Case DD_DATATYPE_CONSUMER_STYLES
 			DDFGetDataTypeFolderName = "consumer_styles"
 		Case DD_DATATYPE_SEASONALITY
@@ -808,6 +816,8 @@ OnError GoTo ErrorOccured
 			DDFIsDataTypeSplitByDaypart = FALSE	'Checked
 		Case DD_DATATYPE_PROFESSION
 			DDFIsDataTypeSplitByDaypart = FALSE	'Checked
+		Case DD_DATATYPE_OCCUPATION
+			DDFIsDataTypeSplitByDaypart = FALSE
 		Case DD_DATATYPE_CONSUMER_STYLES
 			DDFIsDataTypeSplitByDaypart = FALSE	'Checked
 		Case DD_DATATYPE_SEASONALITY
@@ -844,6 +854,8 @@ OnError GoTo ErrorOccured
 			DDFIsDataTypePivoted = TRUE	'Checked
 		Case DD_DATATYPE_PROFESSION
 			DDFIsDataTypePivoted = TRUE	'Checked
+		Case DD_DATATYPE_OCCUPATION
+			DDFIsDataTypePivoted = TRUE
 		Case DD_DATATYPE_CONSUMER_STYLES
 			DDFIsDataTypePivoted = TRUE	'Checked
 		Case DD_DATATYPE_SEASONALITY

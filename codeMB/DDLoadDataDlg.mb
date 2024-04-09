@@ -254,6 +254,17 @@ Dim	sPath  As String,
 
 OnError GoTo ErrorOccured
 
+	'Rushi long path
+	'D:\Pre Sales\PB Data\DynamicDemographics_o3_aus_202312_TXT\DynamicDemographics_o3_aus_202312_TXT\data
+	'D:\Pre Sales\PB Data\DynamicDemographics_o3_aus_202312_TXT\DynamicDemographics_o3_aus_202312_TXT\data\consumer_spend_potential\pivoted\
+	'D:\Pre Sales\PB Data\DynamicDemographics_o3_aus_202312_TXT\DynamicDemographics_o3_aus_202312_TXT\data\consumer_spend_potential\pivoted\dd_h11_spend_aus_p.txt
+	'C:\0. Support\DD Big Files Aus\DynamicDemographics_o3_aus_202312_TXT\DynamicDemographics_o3_aus_202312_TXT\Data\consumer_spend_potential\pivoted
+	'Peter long path
+	'C:\3. Demo\2. Maps\Precisely\DynamicDemographics_o4s_AUS_202212\data
+	'C:\3. Demo\2. Maps\Precisely\DynamicDemographics_o4s_AUS_202212\data\consumer_spend_potential\pivoted\
+	'C:\3. Demo\2. Maps\Precisely\DynamicDemographics_o4s_AUS_202212\data\consumer_spend_potential\pivoted\dd_h11_spend_aus_p.txt
+	'C:\3. Demo\2. Maps\Precisely\DynamicDemographics_o3s_AUS_202312\DynamicDemographics_o3_sample_aus_202312_TXT\data
+
 	sPath	= FILEGetAbsolutePath(ApplicationDirectory$(), ReadControlValue(CTRL_TXT_MAIN_FOLDER))
 	sPath	= FILEBrowseForFolder("Select Dynamic Demographic Data folder...", sPath)
 	If sPath = "" Then
