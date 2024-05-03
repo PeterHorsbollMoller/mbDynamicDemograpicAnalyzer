@@ -612,10 +612,11 @@ OnError GoTo ErrorOccured
 	If ReadControlValue(CTRL_CHK_DATATYPES_USE) Then
 		nItemDatatype	= ReadControlValue(CTRL_LST_DATATYPES)
 		If nItemDatatype = 0 Then
-			Exit Sub
+			nDatatype		= DD_DATATYPE_BOUNDARIES
+		Else
+			nDatatype		= marrDatatypes(nItemDatatype)
+'			Call DEBUGPrint("You selected datatype " & nDatatype & " referring to " & DDFGetDataTypeFolderPath(sPath, TRUE, nDatatype, DDCGetBoundaryType()))
 		End If
-		nDatatype		= marrDatatypes(nItemDatatype)
-'		Call DEBUGPrint("You selected datatype " & nDatatype & " referring to " & DDFGetDataTypeFolderPath(sPath, TRUE, nDatatype, DDCGetBoundaryType()))
 	Else
 		nDatatype		= DD_DATATYPE_BOUNDARIES	'DD_DATATYPE_ORIG_2_DESTINATION
 	End If

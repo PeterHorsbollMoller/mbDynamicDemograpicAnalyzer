@@ -68,6 +68,8 @@
 '					- Fixing issue with Origins to Destinations - was doing Destinations to Origins
 '03-01-2024 07:05:24	v1.9.2
 '					- Added Occupation as a DataType as it replaces Profession in AUS from v2023-12
+'02-05-2024 08:38:14	v1.9.3
+'					- Fixing issue where the boundary file was set to a orig_to_dest file if no datatype was selected.
 '*******************************************************************************
 
 '-------------------------------------
@@ -83,7 +85,7 @@ Include "Library\RibbonElements.def"
 
 Define xProgram 		"Dynamic Demograpic Analyzer"
 Define xProgramMenu		"DynamicDemograpicAnalyzer"
-Define xVersion 		"1.9.2"
+Define xVersion 		"1.9.3"
 Define xYear			"2024"
 Define xAddToMenuBar	FALSE
 
@@ -751,39 +753,6 @@ OnError GoTo ErrorOccured
 
 	Call MENUEnableDisableControls
 
-''	sTo/sFrom = "Orig"
-''	sTo/sFrom = "Dest"
-''	sTo & "_DD"
-''	sFrom & "s_DD"
-''	sFrom & "s_Home_DD"
-''	sFrom & "s_Work_DD"
-''	sTo & "_2_" & sFrom & "s_DD"
-''	sTo & "_2_" & sFrom & "s_Home_DD"
-''	sTo & "_2_" & sFrom & "s_WORK_DD"
-'
-'	For i = 1 To Ubound(mtarrResults)
-'		sFile = STRINGReplace(mtarrResults(i).sQueryTable, "_", " ")
-'		sFile = STRINGReplace(sFile, "DD", sName & ".tab")
-'		Call DEBUGPrint("Saving '" & mtarrResults(i).sQueryTable & "' into '" & sPath & sFile & "'")
-'		Commit Table mtarrResults(i).sQueryTable As sPath & sFile
-'		Close Table mtarrResults(i).sQueryTable
-'		Open Table sPath & sFile
-'		mtarrResults(i).sQueryTable = PathToTableName$(sPath & sFile)
-'	Next
-'
-'	For i = 1 To 2
-'		If i = 2 And Ubound(mtarrResults) = 3 Then
-'			Exit For
-'		End If
-'
-'		nItem = i * 2
-'		Call MENUAddToQueryTablesToMap(nMID, mtarrResults(nItem).sQueryTable, mtarrResults(nItem + 1).sQueryTable, mtarrResults(nItem).sToFromType, mtarrResults(nItem).sOriginAreaType)
-'	Next
-'
-'	Call MENUAddFromQueryTablesToMap(nMID, mtarrResults(1).sQueryTable, mtarrResults(1).sToFromType)
-'
-'	Redim mtarrResults(0)
-
 	Exit Sub
 '-------------------------
 ErrorOccured:
@@ -838,21 +807,7 @@ MENURenameAnalysisResult = FALSE
 
 		Call DEBUGPrint("Renaming '" & mtarrResults(i).sQueryTable & "' into '" & sTabFile & "'")
 		Rename Table mtarrResults(i).sQueryTable As sTabFile
-'		Close Table mtarrResults(i).sQueryTable
-'		Open Table sPath & sFile
-'		mtarrResults(i).sQueryTable = PathToTableName$(sPath & sFile)
 	Next
-
-'	For i = 1 To 2
-'		If i = 2 And Ubound(mtarrResults) = 3 Then
-'			Exit For
-'		End If
-
-'		nItem = i * 2
-'		Call MENUAddToQueryTablesToMap(nMID, mtarrResults(nItem).sQueryTable, mtarrResults(nItem + 1).sQueryTable, mtarrResults(nItem).sToFromType, mtarrResults(nItem).sOriginAreaType)
-'	Next
-
-'	Call MENUAddFromQueryTablesToMap(nMID, mtarrResults(1).sQueryTable, mtarrResults(1).sToFromType)
 
 	Redim mtarrResults(0)
 
@@ -886,6 +841,7 @@ OnError GoTo ErrorOccured
 
 MENUCreateFromQueryTable = ""
 
+	Call DEBUGPrint("MENUCreateFromQueryTable: Select " & sColumnAreaID & " From " & sTable & " Where oPoint Within OBJ Into __currDD NoSelect Hide")
 	Select *
 		From sTable
 		Where oPoint Within OBJ
@@ -1423,102 +1379,6 @@ OnError GoTo ErrorOccured
 		Exit Sub
 	End If
 
-'	Call DDFCloseTempDDTables()
-'
-'	sQueryName		= sFrom & "_DD"
-'	sBoundaryAreaIDCol	= IIf(COLExists(msTabBoundary, "Area_ID")=TRUE, "Area_ID", "Dest_Area_ID")
-'	sAreaID			= MENUCreateFromQueryTable(oPoint, msTabBoundary, sBoundaryAreaIDCol, sQueryName)
-'	If sAreaID = "" Then
-'		Exit Sub
-'	End If
-'	Call DebugPrint(FormatNumber$(TableInfo(sQueryName, TAB_INFO_NROWS)) & " " & sFrom & "(s) found using " & sAreaID)
-'
-'	Fetch First From sQueryName
-'	aOBJ		= sQueryName & ".OBJ"
-'	oFrom	= aOBJ
-'
-'	Redim mtarrResults(1)
-'	mtarrResults(1).sQueryTable 		= sQueryName
-'	mtarrResults(1).sToFromType		= sFrom
-'	mtarrResults(1).sOriginAreaType	= ""
-'
-'	If DDCSplitByWorkerHome() Then
-'		For i = 1 To 2
-'			sOriginAreaType	= IIf(i = 1, "Home", "Work")
-'			sOriginAreaTypeCol	= IIf(i = 1, "PPT_H", "PPT_W")
-'			sQueryName		= sTo & "s_" & sOriginAreaType & "_DD"
-'
-'			nCounts(i)	= MENUCreateToQueryTables( oFrom, sAreaID, sOriginAreaType
-'								, msTabBoundary, sBoundaryAreaIDCol
-'								, msTabOrigin2Dest, "Origin_Area_ID", "Dest_Area_ID", sOriginAreaTypeCol	'"Origin_Area_Type"
-'								, sQueryName, sFrom & "_2_" & sQueryName)
-'			Call DebugPrint(FormatNumber$(nCounts(i)) & " " & sTo & "(s) found for '" & sOriginAreaType & "'.")
-'
-'			If nCounts(i) = 0 Then
-'				Call RBNNotificationShow(PRGIGetApplicationName(), "No " & sTo & " Dynamic Demographic Polygons '" & sOriginAreaType & "' found for Area_ID '" & sAreaID & "'!", Notify_Error, 10000)
-'				Call DDFCloseTempDDTables
-'				Exit Sub
-'			Else
-'				Call MENUAddToQueryTablesToMap(nMID, sQueryName, sFrom & "_2_" & sQueryName, sTo & "s", sOriginAreaType)
-'				nItem	= 2 * i
-'				Redim mtarrResults(nItem + 1)
-'				mtarrResults(nItem).sQueryTable 		= sQueryName
-'				mtarrResults(nItem).sToFromType		= sTo & "s"
-'				mtarrResults(nItem).sOriginAreaType	= sOriginAreaType
-'				mtarrResults(nItem + 1).sQueryTable 	= sFrom & "_2_" & sQueryName
-'				mtarrResults(nItem + 1).sToFromType	= sTo & "s"
-'				mtarrResults(nItem + 1).sOriginAreaType	= sOriginAreaType
-'			End If
-'		Next
-'
-'		sZoomLayer	= sTo & "s_" & IIf(nCounts(1) > nCounts(2), "Home", "Work") & "_DD"
-'	Else
-'		sQueryName		= sTo & "s_DD"
-'
-'		nCounts(1)	= MENUCreateToQueryTables( oFrom, sAreaID, ""
-'							, msTabBoundary, sBoundaryAreaIDCol
-'							, msTabOrigin2Dest, "Origin_Area_ID", "Dest_Area_ID", ""
-'							, sQueryName, sFrom & "_2_" & sQueryName)
-'		Call DebugPrint(FormatNumber$(nCounts(1)) & " " & sTo & "(s) found.")
-'
-'		If nCounts(1) = 0 Then
-'			Call RBNNotificationShow(PRGIGetApplicationName(), "No " & sTo & " Dynamic Demographic Polygons found for Area_ID '" & sAreaID & "'!", Notify_Error, 10000)
-'			Call DDFCloseTempDDTables
-'			Exit Sub
-'		Else
-'			sZoomLayer	= sFrom & "_2_" & sQueryName
-'
-'			Call MENUAddToQueryTablesToMap(nMID, sQueryName, sFrom & "_2_" & sQueryName, sTo & "s", "")
-'			nItem	= 2
-'			Redim mtarrResults(nItem + 1)
-'			mtarrResults(nItem).sQueryTable 		= sQueryName
-'			mtarrResults(nItem).sToFromType		= sTo & "s"
-'			mtarrResults(nItem).sOriginAreaType	= ""
-'			mtarrResults(nItem + 1).sQueryTable 	= sFrom & "_2_" & sQueryName
-'			mtarrResults(nItem + 1).sToFromType	= sTo & "s"
-'			mtarrResults(nItem + 1).sOriginAreaType	= ""
-'		End If
-'	End If
-'
-'	Call MENUAddFromQueryTablesToMap(nMID, mtarrResults(1).sQueryTable, mtarrResults(1).sToFromType)
-'
-'	Call DebugPrint("Zooming to extent of layer '" & sZoomLayer & "'")
-'	Set Window nMID Enhanced On
-'	Set Map
-'		Window nMID
-'		Zoom Entire Layer sZoomLayer
-'
-'	If DDCSplitByWorkerHome() Then
-'		Call RBNNotificationShow(PRGIGetApplicationName(), sFrom & " " & sAreaID & " has "
-'					& FormatNumber$(nCounts(1)) & " Home " & sTo & "s and "
-'					& FormatNumber$(nCounts(2)) & " Work " & sTo & "s"
-'				, Notify_Info, 10000)
-'	Else
-'		Call RBNNotificationShow(PRGIGetApplicationName(), sFrom & " " & sAreaID & " has "
-'					& FormatNumber$(nCounts(1)) & " " & sTo & "s"
-'				, Notify_Info, 10000)
-'	End If
-
 	Call MENUEnableDisableControls
 
 	Exit Sub
@@ -1571,102 +1431,6 @@ OnError GoTo ErrorOccured
 	If Not MENUFromToAnalysis(sFrom, sTo, oPoint, nMID) Then
 		Exit Sub
 	End If
-
-'	Call DDFCloseTempDDTables()
-'
-'	sQueryName		= sFrom & "_DD"
-'	sBoundaryAreaIDCol	= IIf(COLExists(msTabBoundary, "Area_ID")=TRUE, "Area_ID", "Dest_Area_ID")
-'	sAreaID			= MENUCreateFromQueryTable(oPoint, msTabBoundary, sBoundaryAreaIDCol, sQueryName)
-'	If sAreaID = "" Then
-'		Exit Sub
-'	End If
-'	Call DebugPrint(FormatNumber$(TableInfo(sQueryName, TAB_INFO_NROWS)) & " " & sFrom & "(s) found using " & sAreaID)
-'
-'	Fetch First From sQueryName
-'	aOBJ		= sQueryName & ".OBJ"
-'	oFrom	= aOBJ
-'
-'	Redim mtarrResults(1)
-'	mtarrResults(1).sQueryTable 		= sQueryName
-'	mtarrResults(1).sToFromType		= sFrom
-'	mtarrResults(1).sOriginAreaType	= ""
-'
-'	If DDCSplitByWorkerHome() Then
-'		For i = 1 To 2
-'			sOriginAreaType	= IIf(i = 1, "Home", "Work")
-'			sOriginAreaTypeCol	= IIf(i = 1, "PPT_H", "PPT_W")
-'			sQueryName		= sTo & "s_" & sOriginAreaType & "_DD"
-'
-'			nCounts(i)	= MENUCreateToQueryTables( oFrom, sAreaID, sOriginAreaType
-'								, msTabBoundary, sBoundaryAreaIDCol
-'								, msTabOrigin2Dest, "Dest_Area_ID", "Origin_Area_ID", sOriginAreaTypeCol	'"Origin_Area_Type"
-'								, sQueryName, sFrom & "_2_" & sQueryName)
-'			Call DebugPrint(FormatNumber$(nCounts(i)) & " " & sTo & "(s) found for '" & sOriginAreaType & "'.")
-'
-'			If nCounts(i) = 0 Then
-'				Call RBNNotificationShow(PRGIGetApplicationName(), "No " & sTo & " Dynamic Demographic Polygons '" & sOriginAreaType & "' found for Area_ID '" & sAreaID & "'!", Notify_Error, 10000)
-'				Call DDFCloseTempDDTables
-'				Exit Sub
-'			Else
-'				Call MENUAddToQueryTablesToMap(nMID, sQueryName, sFrom & "_2_" & sQueryName, sTo & "s", sOriginAreaType)
-'				nItem	= 2 * i
-'				Redim mtarrResults(nItem + 1)
-'				mtarrResults(nItem).sQueryTable 		= sQueryName
-'				mtarrResults(nItem).sToFromType		= sTo & "s"
-'				mtarrResults(nItem).sOriginAreaType	= sOriginAreaType
-'				mtarrResults(nItem + 1).sQueryTable 	= sFrom & "_2_" & sQueryName
-'				mtarrResults(nItem + 1).sToFromType	= sTo & "s"
-'				mtarrResults(nItem + 1).sOriginAreaType	= sOriginAreaType
-'			End If
-'		Next
-'
-'		sZoomLayer	= sTo & "s_" & IIf(nCounts(1) > nCounts(2), "Home", "Work") & "_DD"
-'	Else
-'		sQueryName	= sTo & "s_DD"
-'
-'		nCounts(1)	= MENUCreateToQueryTables( oFrom, sAreaID, ""
-'						, msTabBoundary, sBoundaryAreaIDCol
-'						, msTabOrigin2Dest, "Dest_Area_ID", "Origin_Area_ID", ""
-'						, sQueryName, sFrom & "_2_" & sQueryName)
-'		Call DebugPrint(FormatNumber$(nCounts(1)) & " " & sTo & "(s) found.")
-'
-'		If nCounts(1) = 0 Then
-'			Call RBNNotificationShow(PRGIGetApplicationName(), "No " & sTo & " Dynamic Demographic Polygons found for Area_ID '" & sAreaID & "'!", Notify_Error, 10000)
-'			Call DDFCloseTempDDTables
-'			Exit Sub
-'		Else
-'			sZoomLayer	= sFrom & "_2_" & sQueryName
-'
-'			Call MENUAddToQueryTablesToMap(nMID, sQueryName, sFrom & "_2_" & sQueryName, sTo & "s", "")
-'			nItem	= 2
-'			Redim mtarrResults(nItem + 1)
-'			mtarrResults(nItem).sQueryTable 		= sQueryName
-'			mtarrResults(nItem).sToFromType		= sTo & "s"
-'			mtarrResults(nItem).sOriginAreaType	= ""
-'			mtarrResults(nItem + 1).sQueryTable 	= sFrom & "_2_" & sQueryName
-'			mtarrResults(nItem + 1).sToFromType	= sTo & "s"
-'			mtarrResults(nItem + 1).sOriginAreaType	= ""
-'		End If
-'	End If
-'
-'	Call MENUAddFromQueryTablesToMap(nMID, mtarrResults(1).sQueryTable, mtarrResults(1).sToFromType)
-'
-'	Call DebugPrint("Zooming to extent of layer '" & sZoomLayer & "'")
-'	Set Window nMID Enhanced On
-'	Set Map
-'		Window nMID
-'		Zoom Entire Layer sZoomLayer
-'
-'	If DDCSplitByWorkerHome() Then
-'		Call RBNNotificationShow(PRGIGetApplicationName(), sFrom & " " & sAreaID & " has "
-'					& FormatNumber$(nCounts(1)) & " Home " & sTo & "s and "
-'					& FormatNumber$(nCounts(2)) & " Work " & sTo & "s"
-'				, Notify_Info, 10000)
-'	Else
-'		Call RBNNotificationShow(PRGIGetApplicationName(), sFrom & " " & sAreaID & " has "
-'					& FormatNumber$(nCounts(1)) & " " & sTo & "s"
-'				, Notify_Info, 10000)
-'	End If
 
 	Call MENUEnableDisableControls
 
